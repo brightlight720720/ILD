@@ -24,6 +24,10 @@ from langchain.tools import BaseTool
 
 # Get the OpenAI API key from environment
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    print("Warning: OpenAI API key not found in environment variables for LangChain agents")
+    OPENAI_API_KEY = "MISSING_KEY"  # This will cause API calls to fail properly
+print(f"LangChain Agents - OpenAI API key available: {bool(OPENAI_API_KEY and OPENAI_API_KEY != 'MISSING_KEY')}")
 
 # Define discussion questions based on the document format
 DISCUSSION_QUESTIONS = [

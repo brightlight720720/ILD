@@ -6,12 +6,14 @@ import re
 # Get the OpenAI API key from environment
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
-    raise ValueError("OpenAI API key not found. Please set the OPENAI_API_KEY environment variable.")
+    print("Warning: OpenAI API key not found. Please set the OPENAI_API_KEY environment variable.")
+    OPENAI_API_KEY = "MISSING_KEY"  # This will cause API calls to fail properly but not crash
 
 # Initialize OpenAI client
 # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
 # do not change this unless explicitly requested by the user
 client = OpenAI(api_key=OPENAI_API_KEY)
+print(f"Agents - OpenAI API key available: {bool(OPENAI_API_KEY and OPENAI_API_KEY != 'MISSING_KEY')}")
 
 class BaseAgent:
     """Base class for all specialized agents."""

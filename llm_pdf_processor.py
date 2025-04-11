@@ -6,7 +6,11 @@ from pdf_processor import extract_text_from_pdf, clean_pdf_text
 
 # Initialize the OpenAI client
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    print("Warning: OpenAI API key not found in environment variables")
+    OPENAI_API_KEY = "MISSING_KEY" # This will cause the API to fail properly
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
+print(f"OpenAI client initialized. API key available: {bool(OPENAI_API_KEY and OPENAI_API_KEY != 'MISSING_KEY')}")
 
 def extract_patient_info_with_llm(pdf_text):
     """
