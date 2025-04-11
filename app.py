@@ -12,7 +12,8 @@ from langchain_agents import analyze_patients_with_langchain
 from visualization import (
     plot_pulmonary_function_trends,
     create_lab_results_radar,
-    create_patient_summary_table
+    create_patient_summary_table,
+    create_risk_assessment_dashboard
 )
 from utils import get_session_id
 
@@ -269,69 +270,125 @@ if st.session_state.selected_patient:
     if analysis:
         st.header("Multi-Agent Analysis")
         
-        # Display document discussion points if available
-        if 'discussion_points' in patient:
-            st.subheader("Document Discussion Points")
-            for i, point in enumerate(patient['discussion_points']):
-                st.markdown(f"**{i+1}. {point['question']}** {point['answer']}")
+        # Create tabs for different analysis views
+        analysis_tabs = st.tabs(["Specialist Impressions", "Discussion Details", "Recommendations", "Risk Assessment Dashboard"])
         
-        # Display specialists' impressions from multi-agent system
-        if 'specialist_impressions' in analysis:
-            st.subheader("Specialist Impressions")
-            specialists = analysis.get('specialist_impressions', {})
+        # Tab 1: Specialist Impressions
+        with analysis_tabs[0]:
+            # Display document discussion points if available
+            if 'discussion_points' in patient:
+                st.subheader("Document Discussion Points")
+                for i, point in enumerate(patient['discussion_points']):
+                    st.markdown(f"**{i+1}. {point['question']}** {point['answer']}")
             
-            # Create tabs for each specialist
-            if specialists:
-                tabs = st.tabs(list(specialists.keys()))
-                for i, (specialist_type, impression) in enumerate(specialists.items()):
-                    with tabs[i]:
-                        st.write(impression)
+            # Display specialists' impressions from multi-agent system
+            if 'specialist_impressions' in analysis:
+                st.subheader("Specialist Impressions")
+                specialists = analysis.get('specialist_impressions', {})
+                
+                # Create tabs for each specialist
+                if specialists:
+                    specialist_tabs = st.tabs(list(specialists.keys()))
+                    for i, (specialist_type, impression) in enumerate(specialists.items()):
+                        with specialist_tabs[i]:
+                            st.write(impression)
         
-        # Display multi-agent discussion
-        if 'meeting_discussion' in analysis:
-            st.subheader("Multi-Agent Discussion")
-            discussions = analysis.get('meeting_discussion', {})
+        # Tab 2: Multi-Agent Discussion
+        with analysis_tabs[1]:
+            # Display multi-agent discussion
+            if 'meeting_discussion' in analysis:
+                st.subheader("Multi-Agent Discussion")
+                discussions = analysis.get('meeting_discussion', {})
+                
+                # Create expandable sections for each discussion question
+                if discussions:
+                    for question, discussion in discussions.items():
+                        with st.expander(question):
+                            st.markdown("**Coordinator:**")
+                            st.write(discussion.get('coordinator_prompt', 'No coordinator input'))
+                            
+                            for specialist, response in discussion.get('specialist_responses', {}).items():
+                                st.markdown(f"**{specialist.title()}:**")
+                                st.write(response)
             
-            # Create expandable sections for each discussion question
-            if discussions:
-                for question, discussion in discussions.items():
-                    with st.expander(question):
-                        st.markdown("**Coordinator:**")
-                        st.write(discussion.get('coordinator_prompt', 'No coordinator input'))
-                        
-                        for specialist, response in discussion.get('specialist_responses', {}).items():
-                            st.markdown(f"**{specialist.title()}:**")
-                            st.write(response)
+            # Display meeting conclusion
+            if 'meeting_conclusion' in analysis:
+                st.subheader("Meeting Conclusion")
+                st.write(analysis.get('meeting_conclusion', 'No conclusion available'))
         
-        # Display meeting conclusion
-        if 'meeting_conclusion' in analysis:
-            st.subheader("Meeting Conclusion")
-            st.write(analysis.get('meeting_conclusion', 'No conclusion available'))
-        
-        # Agent Recommendations
-        st.subheader("Final Recommendations")
-        
-        # Diagnosis Analysis
-        st.markdown("#### Diagnosis Analysis")
-        st.write(analysis.get('diagnosis_analysis', 'No diagnosis analysis available'))
-        
-        # Treatment Recommendations
-        st.markdown("#### Treatment Recommendations")
-        st.write(analysis.get('treatment_recommendations', 'No treatment recommendations available'))
-        
-        # Disease Progression Assessment
-        st.markdown("#### Disease Progression Assessment")
-        st.write(analysis.get('progression_assessment', 'No progression assessment available'))
-        
-        # Risk Assessment
-        st.markdown("#### Risk Assessment")
-        risk_level = analysis.get('risk_level', 'Unknown')
-        risk_factors = analysis.get('risk_factors', [])
-        
-        st.markdown(f"**Risk Level:** {risk_level}")
-        st.markdown("**Risk Factors:**")
-        for factor in risk_factors:
-            st.markdown(f"- {factor}")
+        # Tab 3: Recommendations
+        with analysis_tabs[2]:
+            # Agent Recommendations
+            st.subheader("Final Recommendations")
+            
+            # Diagnosis Analysis
+            st.markdown("#### Diagnosis Analysis")
+            st.write(analysis.get('diagnosis_analysis', 'No diagnosis analysis available'))
+            
+            # Treatment Recommendations
+            st.markdown("#### Treatment Recommendations")
+            st.write(analysis.get('treatment_recommendations', 'No treatment recommendations available'))
+            
+            # Disease Progression Assessment
+            st.markdown("#### Disease Progression Assessment")
+            st.write(analysis.get('progression_assessment', 'No progression assessment available'))
+            
+            # Risk Assessment
+            st.markdown("#### Risk Assessment")
+            risk_level = analysis.get('risk_level', 'Unknown')
+            risk_factors = analysis.get('risk_factors', [])
+            
+            st.markdown(f"**Risk Level:** {risk_level}")
+            st.markdown("**Risk Factors:**")
+            for factor in risk_factors:
+                st.markdown(f"- {factor}")
+                
+        # Tab 4: Color-coded Risk Assessment Dashboard
+        with analysis_tabs[3]:
+            st.subheader("Color-coded Risk Assessment Dashboard")
+            
+            # Create risk assessment dashboard
+            try:
+                # Generate the risk assessment dashboard
+                risk_dashboard = create_risk_assessment_dashboard(patient, analysis)
+                
+                # Display the dashboard
+                st.pyplot(risk_dashboard)
+                
+                # Add legend explanation
+                st.markdown("""
+                ### Risk Level Color Code:
+                - 🟢 **Low Risk** (Green): Minimal concern, stable condition
+                - 🟡 **Moderate Risk** (Yellow): Requires monitoring and possible intervention
+                - 🔴 **High Risk** (Red): Significant concern, requires immediate attention
+                - ⚪ **Unknown** (Gray): Insufficient data to determine risk level
+                """)
+                
+                # Add dashboard explanation
+                with st.expander("How to interpret this dashboard"):
+                    st.markdown("""
+                    ### Dashboard Interpretation Guide
+                    
+                    This color-coded risk assessment dashboard provides a visual representation of various risk factors for the patient:
+                    
+                    1. **Overall Risk Assessment**: A summary of the patient's overall risk level based on all factors.
+                    
+                    2. **Pulmonary Function**: Risk based on pulmonary function test results:
+                       - FVC < 50% or DLCO < 35% = High Risk
+                       - FVC 50-70% or DLCO 35-60% = Moderate Risk
+                       - FVC > 70% and DLCO > 60% = Low Risk
+                    
+                    3. **Disease Activity**: Based on immunologic and inflammatory markers, indicating whether the disease is active or stable.
+                    
+                    4. **Treatment Response**: Indicates how well the patient is responding to current treatment.
+                    
+                    5. **Disease Progression Indicators**: Summarizes whether the disease is progressing, stable, or improving over time.
+                    
+                    The color coding helps identify areas of concern that may require immediate attention or closer monitoring.
+                    """)
+            except Exception as e:
+                st.error(f"Error creating risk assessment dashboard: {str(e)}")
+                st.info("Please ensure that patient data includes pulmonary function tests, laboratory results, and other clinical metrics for a complete risk assessment.")
     else:
         st.warning("Analysis results not available for this patient")
 else:
@@ -358,6 +415,6 @@ else:
     - Diagnosis verification and assessment
     - Treatment recommendations
     - Disease progression tracking
-    - Risk level assessment
-    - Visualization of key metrics
+    - Color-coded risk assessment dashboard
+    - Visual representation of key patient metrics
     """)
