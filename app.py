@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import io
 
 from pdf_processor import extract_text_from_pdf
-from data_extractor import extract_patient_data
+from llm_pdf_processor import process_pdf_with_llm
 from langchain_agents import analyze_patients_with_langchain
 from visualization import (
     plot_pulmonary_function_trends,
@@ -103,6 +103,7 @@ if "api_key_warning_shown" not in st.session_state:
 # Main title
 st.title("ILD Patient Analysis System")
 st.write("A LangChain-powered multi-agent system for collaborative analysis of Interstitial Lung Disease patients")
+st.markdown("### Featuring LLM-enhanced PDF processing and color-coded risk assessment dashboard")
 
 # Display API key warning if needed
 if not api_key_available and not st.session_state.api_key_warning_shown:
@@ -134,12 +135,16 @@ with st.sidebar:
             temp_file.close()
             
             try:
-                # Extract text from PDF
-                pdf_text = extract_text_from_pdf(temp_file.name)
-                st.text("PDF text extracted successfully")
-                
-                # Extract structured patient data
-                patients_data = extract_patient_data(pdf_text)
+                # Process PDF using LLM-based extraction
+                with st.status("Processing document...", expanded=True) as status:
+                    st.write("Extracting text from PDF...")
+                    pdf_text = extract_text_from_pdf(temp_file.name)
+                    st.write("Text extracted successfully.")
+                    
+                    st.write("Using LLM to extract structured patient data...")
+                    # Use the LLM-based processor to extract patient data
+                    patients_data = process_pdf_with_llm(temp_file.name)
+                    status.update(label="Document processed successfully!", state="complete")
                 
                 if patients_data:
                     # Debug info
@@ -399,9 +404,10 @@ else:
     st.subheader("How to use this application")
     st.markdown("""
     1. Upload a PDF document containing ILD patient information via the sidebar
-    2. The system will extract and analyze patient data automatically
-    3. Select a patient from the dropdown to view detailed analysis
-    4. Review the multi-agent analysis and recommendations
+    2. The system will extract text and use OpenAI to process patient data
+    3. Each patient's information is structured with medical context
+    4. The multi-agent system performs comprehensive analysis
+    5. Review the results including the color-coded risk dashboard
     
     The LangChain multi-agent system includes:
     - A coordinator agent that facilitates the discussion
