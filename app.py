@@ -8,7 +8,7 @@ import io
 
 from pdf_processor import extract_text_from_pdf
 from data_extractor import extract_patient_data
-from patient_analyzer import analyze_patients
+from langchain_agents import analyze_patients_with_langchain
 from visualization import (
     plot_pulmonary_function_trends,
     create_lab_results_radar,
@@ -35,7 +35,7 @@ if "session_id" not in st.session_state:
 
 # Main title
 st.title("ILD Patient Analysis System")
-st.write("A multi-agent system for analyzing Interstitial Lung Disease patients")
+st.write("A LangChain-powered multi-agent system for collaborative analysis of Interstitial Lung Disease patients")
 
 # Sidebar for uploading and managing files
 with st.sidebar:
@@ -59,8 +59,8 @@ with st.sidebar:
                 
                 if patients_data:
                     st.session_state.patients_data = patients_data
-                    # Analyze patient data
-                    st.session_state.analysis_results = analyze_patients(patients_data)
+                    # Analyze patient data using LangChain multi-agent system
+                    st.session_state.analysis_results = analyze_patients_with_langchain(patients_data)
                     st.success(f"Successfully processed {len(patients_data)} patient records")
                 else:
                     st.error("No patient data could be extracted from the document")
@@ -160,14 +160,47 @@ if st.session_state.selected_patient:
     if analysis:
         st.header("Multi-Agent Analysis")
         
-        # Display discussion points
-        st.subheader("Discussion Points")
+        # Display document discussion points if available
         if 'discussion_points' in patient:
+            st.subheader("Document Discussion Points")
             for i, point in enumerate(patient['discussion_points']):
                 st.markdown(f"**{i+1}. {point['question']}** {point['answer']}")
         
+        # Display specialists' impressions from multi-agent system
+        if 'specialist_impressions' in analysis:
+            st.subheader("Specialist Impressions")
+            specialists = analysis.get('specialist_impressions', {})
+            
+            # Create tabs for each specialist
+            if specialists:
+                tabs = st.tabs(list(specialists.keys()))
+                for i, (specialist_type, impression) in enumerate(specialists.items()):
+                    with tabs[i]:
+                        st.write(impression)
+        
+        # Display multi-agent discussion
+        if 'meeting_discussion' in analysis:
+            st.subheader("Multi-Agent Discussion")
+            discussions = analysis.get('meeting_discussion', {})
+            
+            # Create expandable sections for each discussion question
+            if discussions:
+                for question, discussion in discussions.items():
+                    with st.expander(question):
+                        st.markdown("**Coordinator:**")
+                        st.write(discussion.get('coordinator_prompt', 'No coordinator input'))
+                        
+                        for specialist, response in discussion.get('specialist_responses', {}).items():
+                            st.markdown(f"**{specialist.title()}:**")
+                            st.write(response)
+        
+        # Display meeting conclusion
+        if 'meeting_conclusion' in analysis:
+            st.subheader("Meeting Conclusion")
+            st.write(analysis.get('meeting_conclusion', 'No conclusion available'))
+        
         # Agent Recommendations
-        st.subheader("Agent Recommendations")
+        st.subheader("Final Recommendations")
         
         # Diagnosis Analysis
         st.markdown("#### Diagnosis Analysis")
@@ -204,7 +237,15 @@ else:
     3. Select a patient from the dropdown to view detailed analysis
     4. Review the multi-agent analysis and recommendations
     
-    The analysis includes:
+    The LangChain multi-agent system includes:
+    - A coordinator agent that facilitates the discussion
+    - Five specialist agents (pulmonologist, rheumatologist, radiologist, pathologist, cardiologist)
+    - Collaborative discussion on eight key clinical questions
+    - Comprehensive analysis with specialist perspectives
+    
+    The analysis results include:
+    - Specialist impressions from each medical expert
+    - Complete multi-disciplinary team discussion
     - Diagnosis verification and assessment
     - Treatment recommendations
     - Disease progression tracking
