@@ -42,10 +42,31 @@ def plot_pulmonary_function_trends(pft_df):
     for metric in metrics_to_plot:
         if metric in pft_df.columns:
             if use_percent:
-                values = [float(str(val).replace('%', '')) for val in pft_df[f'{metric}_percent'] if pd.notnull(val)]
+                # Extract percent values like "52%" from strings like "1.47 (52%)"
+                values = []
+                for val in pft_df[metric] if metric in pft_df.columns else []:
+                    if pd.notnull(val):
+                        # Try to extract percentage from format like "1.47 (52%)"
+                        import re
+                        match = re.search(r'\((\d+)%\)', str(val))
+                        if match:
+                            values.append(float(match.group(1)))
+                        else:
+                            # Try to extract percentage directly if it's just like "52%"
+                            match = re.search(r'(\d+)%', str(val))
+                            if match:
+                                values.append(float(match.group(1)))
                 label = f"{metric} (%)"
             else:
-                values = [float(val) for val in pft_df[metric] if pd.notnull(val)]
+                # Extract absolute values like "1.47" from strings like "1.47 (52%)"
+                values = []
+                for val in pft_df[metric] if metric in pft_df.columns else []:
+                    if pd.notnull(val):
+                        # Try to extract the numeric value before any parentheses
+                        import re
+                        match = re.search(r'^([\d\.]+)', str(val))
+                        if match:
+                            values.append(float(match.group(1)))
                 label = metric
             
             if len(values) == len(dates):
