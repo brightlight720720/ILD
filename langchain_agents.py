@@ -41,18 +41,19 @@ DISCUSSION_QUESTIONS = [
 class PatientDataTool(BaseTool):
     name: str = "patient_data"
     description: str = "Tool to access patient data including history, symptoms, lab results, and imaging"
+    patient_data_str: str = ""  # Add field to store the data as a string
     
     def __init__(self, patient_data):
         super().__init__()
-        self.patient_data = json.dumps(patient_data, ensure_ascii=False, indent=2)
+        self.patient_data_str = json.dumps(patient_data, ensure_ascii=False, indent=2)
     
     def _run(self, query: str = None) -> str:
         """Return patient data based on the query"""
-        return self.patient_data
+        return self.patient_data_str
     
     async def _arun(self, query: str = None) -> str:
         """Return patient data based on the query (async version)"""
-        return self.patient_data
+        return self.patient_data_str
 
 class MedicalLiteratureTool(BaseTool):
     name: str = "medical_literature"

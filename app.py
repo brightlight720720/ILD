@@ -16,6 +16,65 @@ from visualization import (
 )
 from utils import get_session_id
 
+# Sample patient data for testing
+SAMPLE_PATIENT = {
+    "id": "ILD-2023-045",
+    "name": "Sample Patient",
+    "case_date": "2023/04/11",
+    "physician": "Dr. Smith",
+    "diagnosis": "SLE overlapping RA with ILD",
+    "imaging_diagnosis": "UIP pattern with honeycombing",
+    "case_summary": "58-year-old female with progressive dyspnea, dry cough, and fatigue. History of SLE overlapping RA for 26 years with arthritis and positive autoimmune markers. ILD suspected after endoxan pulse therapy in 1995.",
+    "medications": {
+        "Bronchodilator": "Relvar ellipta QD (Fluticasone, Vilanterol ellipta)",
+        "Immunosuppressive agent": "AZA 50mg TIW, Tofacitinib 11mg QD, Prednisolone 10mg QD",
+        "Anti-fibrotic agent": "None",
+        "Pulmonary hypertension agent": "None",
+        "Others": "HCQ 200mg QD, montelukast 10mg HS, erythromycin 750mg QD"
+    },
+    "immunologic_profile": {
+        "ANA": "1:1280",
+        "SS-A": "> 240",
+        "SS-B": "220",
+        "RF": "85.9",
+        "Myositis Ab": "Ku:++/ Ro-52:+++"
+    },
+    "biologic_markers": {
+        "Ferritin": "9.81",
+        "ESR": "27",
+        "hs-CRP": "0.011",
+        "NT-ProBNP": "78.67"
+    },
+    "pulmonary_tests": [
+        {
+            "date": "2023/01/15",
+            "FVC": "51%",
+            "FEV1": "50%",
+            "FEV1/FVC": "82%",
+            "DLCO": "40%"
+        }
+    ],
+    "hrct": {
+        "date": "2023/02/10",
+        "findings": "Reticulation over periphery of right lower lobe and lower lobe with honeycombing pattern",
+        "impression": "UIP should be considered, stable compared to previous CT"
+    },
+    "discussion_points": [
+        {
+            "question": "Is this patient's condition considered ILD?",
+            "answer": "Yes, the patient has features consistent with ILD based on HRCT findings and pulmonary function tests."
+        },
+        {
+            "question": "Does the patient have UIP pattern?",
+            "answer": "Yes, the HRCT findings show reticulation with a peripheral distribution and honeycombing, which are consistent with a UIP pattern."
+        },
+        {
+            "question": "Is there ongoing rheumatic disease activity?",
+            "answer": "Yes, there are elevated autoimmune markers suggesting ongoing rheumatic disease activity."
+        }
+    ]
+}
+
 # Set page configuration
 st.set_page_config(
     page_title="ILD Patient Analysis System",
@@ -42,6 +101,14 @@ with st.sidebar:
     st.header("Document Management")
     uploaded_file = st.file_uploader("Upload ILD patient document (PDF)", type="pdf")
     
+    # Add a button to use sample data for testing
+    if st.button("Use Sample Patient Data"):
+        st.session_state.patients_data = [SAMPLE_PATIENT]
+        
+        with st.spinner("Analyzing sample patient with multi-agent system..."):
+            st.session_state.analysis_results = analyze_patients_with_langchain(st.session_state.patients_data)
+            st.success("Multi-agent analysis complete!")
+    
     if uploaded_file is not None:
         # Process the uploaded file
         with st.spinner("Processing document..."):
@@ -53,15 +120,30 @@ with st.sidebar:
             try:
                 # Extract text from PDF
                 pdf_text = extract_text_from_pdf(temp_file.name)
+                st.text("PDF text extracted successfully")
                 
                 # Extract structured patient data
                 patients_data = extract_patient_data(pdf_text)
                 
                 if patients_data:
+                    # Debug info
+                    st.text(f"Found {len(patients_data)} patient records in the PDF")
+                    for i, p in enumerate(patients_data):
+                        st.text(f"Patient {i+1}: ID={p.get('id', 'Unknown')}, Name={p.get('name', 'Unknown')}")
+                        
+                        # Ensure required fields exist for LangChain processing
+                        if 'name' not in p:
+                            patients_data[i]['name'] = f"Patient {i+1}"
+                        if 'id' not in p:
+                            patients_data[i]['id'] = f"ID-{i+1}"
+                    
                     st.session_state.patients_data = patients_data
+                    st.success(f"Successfully extracted {len(patients_data)} patient records")
+                    
                     # Analyze patient data using LangChain multi-agent system
-                    st.session_state.analysis_results = analyze_patients_with_langchain(patients_data)
-                    st.success(f"Successfully processed {len(patients_data)} patient records")
+                    with st.spinner("Analyzing patient data with multi-agent system..."):
+                        st.session_state.analysis_results = analyze_patients_with_langchain(patients_data)
+                        st.success("Multi-agent analysis complete!")
                 else:
                     st.error("No patient data could be extracted from the document")
             except Exception as e:
