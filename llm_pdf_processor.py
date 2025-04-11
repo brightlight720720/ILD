@@ -22,32 +22,60 @@ def extract_patient_info_with_llm(pdf_text):
         # Clean text if needed
         if len(pdf_text) > 200000:  # If text is very long, truncate it
             pdf_text = pdf_text[:200000]
+            
+        # Handle potential text encoding issues
+        try:
+            # Ensure text is properly encoded
+            pdf_text = pdf_text.encode('utf-8', errors='replace').decode('utf-8')
+            # Replace any problematic characters
+            pdf_text = ''.join(char if ord(char) < 128 else ' ' for char in pdf_text)
+        except Exception as e:
+            print(f"Warning - text encoding cleanup: {str(e)}")
+            # If encoding fails, try a more aggressive cleanup
+            pdf_text = ''.join(c for c in pdf_text if c.isprintable())
         
         # Define the extraction prompt
         system_prompt = """
         You are a medical data extraction specialist. Extract structured patient information from the provided text from a PDF about 
         Interstitial Lung Disease (ILD) patient cases. The text is from a multi-disciplinary discussion meeting.
         
-        Extract ALL information for EACH patient in the document. Some patients might have partial information, extract whatever is available.
+        Extract information for EACH patient in the document. Some patients might have partial information, extract whatever is available.
         
-        For each patient, extract the following fields (if available):
-        1. ID: Patient ID number
-        2. name: Patient name 
-        3. case_date: Date of the case
-        4. physician: Treating physician
-        5. diagnosis: Primary diagnosis
-        6. imaging_diagnosis: Imaging diagnosis or impression
-        7. case_summary: Brief summary of the patient's condition
-        8. medications: All medications organized by category
-        9. immunologic_profile: Laboratory immunologic tests and results
-        10. biologic_markers: Biological markers and values
-        11. pulmonary_tests: Pulmonary function test results with dates
-        12. hrct: HRCT findings with date and impressions
-        13. discussion_points: Points discussed in the meeting and conclusions
+        For each patient, extract these fields (if available):
+        1. id: Patient ID number (string)
+        2. name: Patient name (string)
+        3. case_date: Date of the case (string)
+        4. physician: Treating physician (string)
+        5. diagnosis: Primary diagnosis (string)
+        6. imaging_diagnosis: Imaging diagnosis or impression (string)
+        7. case_summary: Brief summary of the patient's condition (string)
+        8. medications: Medications as simple key-value pairs
+        9. immunologic_profile: Laboratory immunologic tests as key-value pairs
+        10. biologic_markers: Biological markers as key-value pairs
+        11. pulmonary_tests: Array of test results with date, FVC, FEV1, etc. as strings
+        12. hrct: Object with date, findings, and impression as strings
+        13. discussion_points: Array of objects with question and answer fields
         
-        Return the data as a structured JSON array where each patient is an object.
-        Each patient MUST have at least id and name fields. If these cannot be extracted, use "Patient X" and "ID-X" where X is the order in the document.
-        If a field has no information, use null or an empty structure appropriate for that field.
+        Return your response in this exact format:
+        {
+          "patients": [
+            {
+              "id": "patient-id-1",
+              "name": "Patient Name 1",
+              "case_date": "date string",
+              ...other fields...
+            },
+            {
+              "id": "patient-id-2",
+              "name": "Patient Name 2",
+              ...other fields...
+            }
+          ]
+        }
+        
+        If no ID or name is found, use "Patient 1" and "ID-1" for the first patient.
+        Use null for any missing fields.
+        Keep the JSON structure simple and avoid nested objects beyond what's specified.
         """
         
         user_prompt = f"Extract structured patient information from this ILD patient document text:\n\n{pdf_text}"
@@ -64,21 +92,32 @@ def extract_patient_info_with_llm(pdf_text):
             max_tokens=4000
         )
         
-        # Extract and parse the JSON response
-        result = json.loads(response.choices[0].message.content)
-        
-        # Ensure the result is an array of patients
-        patients = result.get("patients", [])
-        if not isinstance(patients, list):
-            # If not a list, try to see if the entire result is the patient array
-            if isinstance(result, list):
-                patients = result
-            else:
-                # Last resort: wrap single patient in a list
-                if isinstance(result, dict) and ("id" in result or "name" in result):
-                    patients = [result]
+        # Extract and parse the JSON response with robust error handling
+        try:
+            content = response.choices[0].message.content
+            # Clean the content in case there are any invalid characters
+            content = content.replace('\n', ' ').replace('\r', ' ')
+            result = json.loads(content)
+            
+            # Ensure the result is an array of patients
+            patients = result.get("patients", [])
+            if not isinstance(patients, list):
+                # If not a list, try to see if the entire result is the patient array
+                if isinstance(result, list):
+                    patients = result
                 else:
-                    patients = []
+                    # Last resort: wrap single patient in a list
+                    if isinstance(result, dict) and ("id" in result or "name" in result):
+                        patients = [result]
+                    else:
+                        patients = []
+        except json.JSONDecodeError as e:
+            print(f"Error parsing JSON from OpenAI response: {str(e)}")
+            print(f"Response content: {response.choices[0].message.content[:200]}...")
+            patients = []
+        except Exception as e:
+            print(f"Unexpected error processing OpenAI response: {str(e)}")
+            patients = []
         
         # Process each patient to ensure required fields
         for i, patient in enumerate(patients):
