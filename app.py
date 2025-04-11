@@ -72,7 +72,19 @@ with st.sidebar:
     
     if st.session_state.patients_data:
         st.subheader("Patient Selection")
-        patient_names = [f"{p['name']} ({p['id']})" for p in st.session_state.patients_data]
+        # Handle cases where name or id might be missing
+        patient_names = []
+        for i, p in enumerate(st.session_state.patients_data):
+            name = p.get('name', f"Patient {i+1}")
+            id_value = p.get('id', f"ID-{i+1}")
+            patient_names.append(f"{name} ({id_value})")
+            
+            # Ensure required fields exist for LangChain processing
+            if 'name' not in p:
+                st.session_state.patients_data[i]['name'] = f"Patient {i+1}"
+            if 'id' not in p:
+                st.session_state.patients_data[i]['id'] = f"ID-{i+1}"
+                
         selected_patient_idx = st.selectbox(
             "Select a patient to view details",
             range(len(patient_names)),
