@@ -82,6 +82,11 @@ st.set_page_config(
     layout="wide",
 )
 
+# Check for OPENAI_API_KEY
+import os
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+api_key_available = OPENAI_API_KEY is not None and len(OPENAI_API_KEY.strip()) > 0
+
 # Initialize session state
 if "patients_data" not in st.session_state:
     st.session_state.patients_data = []
@@ -91,19 +96,29 @@ if "selected_patient" not in st.session_state:
     st.session_state.selected_patient = None
 if "session_id" not in st.session_state:
     st.session_state.session_id = get_session_id()
+if "api_key_warning_shown" not in st.session_state:
+    st.session_state.api_key_warning_shown = False
 
 # Main title
 st.title("ILD Patient Analysis System")
 st.write("A LangChain-powered multi-agent system for collaborative analysis of Interstitial Lung Disease patients")
+
+# Display API key warning if needed
+if not api_key_available and not st.session_state.api_key_warning_shown:
+    st.warning("⚠️ OpenAI API key is not configured. The multi-agent system requires an OpenAI API key to function properly. Please add your key to the environment variables.")
+    st.session_state.api_key_warning_shown = True
 
 # Sidebar for uploading and managing files
 with st.sidebar:
     st.header("Document Management")
     uploaded_file = st.file_uploader("Upload ILD patient document (PDF)", type="pdf")
     
-    # Add a button to use sample data for testing
-    if st.button("Use Sample Patient Data"):
+    # Add a prominent button to use sample data for testing
+    st.markdown("### Quick Test Option")
+    st.markdown("Try the app without uploading a file:")
+    if st.button("📋 Use Sample Patient Data", use_container_width=True):
         st.session_state.patients_data = [SAMPLE_PATIENT]
+        st.info("Sample patient data loaded!")
         
         with st.spinner("Analyzing sample patient with multi-agent system..."):
             st.session_state.analysis_results = analyze_patients_with_langchain(st.session_state.patients_data)
