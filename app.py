@@ -5,6 +5,7 @@ import pandas as pd
 import json
 import matplotlib.pyplot as plt
 import io
+import re
 
 from pdf_processor import extract_text_from_pdf
 from llm_pdf_processor import process_pdf_with_llm
@@ -314,6 +315,10 @@ if st.session_state.comparison_view and st.session_state.patients_data:
             analysis = next((a for a in st.session_state.analysis_results if a['patient_id'] == patient['id']), None)
             
             if analysis:
+                # Get the specific questions from risk assessment if available
+                questions = analysis.get('specific_questions', {})
+                
+                # Create a dictionary with all the key info
                 risk_info = {
                     "ID": patient.get('id', 'N/A'),
                     "Name": patient.get('name', 'N/A'),
@@ -507,6 +512,37 @@ elif st.session_state.selected_patient:
             st.markdown("**Risk Factors:**")
             for factor in risk_factors:
                 st.markdown(f"- {factor}")
+                
+            # Display the 8 specific questions
+            st.markdown("#### Key Clinical Questions")
+            specific_questions = analysis.get('specific_questions', {})
+            if specific_questions:
+                for question, answer in specific_questions.items():
+                    answer_color = "green" if answer == "是" else "red"
+                    st.markdown(f"**{question}:** <span style='color:{answer_color}'>{answer}</span>", unsafe_allow_html=True)
+            else:
+                # Extract answers from the full text for different agent outputs
+                full_text = analysis.get('diagnosis_analysis', '') + \
+                           analysis.get('treatment_recommendations', '') + \
+                           analysis.get('progression_assessment', '')
+                
+                questions = [
+                    "是否為 ILD",
+                    "是否為 Indeterminate",
+                    "是否為 UIP",
+                    "是否還有 NSIP pattern",
+                    "是否還有免風疾病活動性(activity) 病變",
+                    "是否 ILD 持續進展",
+                    "是否調整免疫治療藥物",
+                    "是否建議使用抗肺纖維化藥物"
+                ]
+                
+                for question in questions:
+                    pattern = f"{question}[：:]\s*([是否])"
+                    match = re.search(pattern, full_text)
+                    answer = match.group(1) if match else "否"
+                    answer_color = "green" if answer == "是" else "red"
+                    st.markdown(f"**{question}:** <span style='color:{answer_color}'>{answer}</span>", unsafe_allow_html=True)
                 
         # Tab 4: Color-coded Risk Assessment Dashboard
         with analysis_tabs[3]:

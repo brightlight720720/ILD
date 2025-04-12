@@ -82,7 +82,8 @@ class DiagnosisAgent(BaseAgent):
         3. Evaluating the confidence level of the diagnosis
         4. Identifying any alternative diagnostic considerations
         
-        Provide a concise but thorough assessment in a clinical tone.
+        Be extremely concise and to the point. Limit your total response to 500 words or less.
+        Use clear, direct medical language without unnecessary explanations.
         """
     
     def _create_prompt(self, patient_json):
@@ -96,7 +97,16 @@ class DiagnosisAgent(BaseAgent):
         Patient Data:
         {patient_json}
         
-        Provide a concise diagnostic assessment focusing on verification and confidence.
+        Provide a VERY CONCISE diagnostic assessment (under 500 words total).
+        Clearly answer YES or NO to these specific questions at the end of your analysis:
+        1. 是否為 ILD？是 否
+        2. 是否為 Indeterminate？是 否
+        3. 是否為 UIP？是 否
+        4. 是否還有 NSIP pattern？是 否
+        5. 是否還有免風疾病活動性(activity) 病變？是 否
+        6. 是否 ILD 持續進展？是 否
+        7. 是否調整免疫治療藥物？是 否
+        8. 是否建議使用抗肺纖維化藥物？是 否
         """
 
 
@@ -112,7 +122,8 @@ class TreatmentAgent(BaseAgent):
         3. Recommending additional therapies if indicated
         4. Considering both anti-inflammatory and anti-fibrotic approaches
         
-        Make evidence-based recommendations while acknowledging uncertainty where appropriate.
+        Be extremely concise and to the point. Limit your total response to 500 words or less.
+        Use clear, direct medical language without unnecessary explanations.
         """
     
     def _create_prompt(self, patient_json):
@@ -127,7 +138,16 @@ class TreatmentAgent(BaseAgent):
         Patient Data:
         {patient_json}
         
-        Provide specific, actionable treatment recommendations with rationale.
+        Provide VERY CONCISE, actionable treatment recommendations (under 500 words total).
+        Clearly answer YES or NO to these specific questions at the end of your analysis:
+        1. 是否為 ILD？是 否
+        2. 是否為 Indeterminate？是 否
+        3. 是否為 UIP？是 否
+        4. 是否還有 NSIP pattern？是 否
+        5. 是否還有免風疾病活動性(activity) 病變？是 否
+        6. 是否 ILD 持續進展？是 否
+        7. 是否調整免疫治療藥物？是 否
+        8. 是否建議使用抗肺纖維化藥物？是 否
         """
 
 
@@ -143,7 +163,8 @@ class ProgressionAgent(BaseAgent):
         3. Evaluating symptom progression
         4. Determining the rate of progression if present
         
-        Provide an evidence-based assessment of disease trajectory.
+        Be extremely concise and to the point. Limit your total response to 500 words or less.
+        Use clear, direct medical language without unnecessary explanations.
         """
     
     def _create_prompt(self, patient_json):
@@ -157,7 +178,16 @@ class ProgressionAgent(BaseAgent):
         Patient Data:
         {patient_json}
         
-        Provide a clear assessment of disease stability or progression with supporting evidence.
+        Provide a VERY CONCISE assessment of disease stability or progression (under 500 words total).
+        Clearly answer YES or NO to these specific questions at the end of your analysis:
+        1. 是否為 ILD？是 否
+        2. 是否為 Indeterminate？是 否
+        3. 是否為 UIP？是 否
+        4. 是否還有 NSIP pattern？是 否
+        5. 是否還有免風疾病活動性(activity) 病變？是 否
+        6. 是否 ILD 持續進展？是 否
+        7. 是否調整免疫治療藥物？是 否
+        8. 是否建議使用抗肺纖維化藥物？是 否
         """
 
 
@@ -173,7 +203,8 @@ class RiskAssessmentAgent(BaseAgent):
         3. Evaluating risk for complications like pulmonary hypertension
         4. Determining risks associated with therapy
         
-        Provide a structured risk assessment with specific factors.
+        Be extremely concise and to the point. Limit your total explanation to 500 words or less.
+        Use clear, direct medical language without unnecessary explanations.
         """
     
     def _create_prompt(self, patient_json):
@@ -188,13 +219,25 @@ class RiskAssessmentAgent(BaseAgent):
         Patient Data:
         {patient_json}
         
-        Provide a risk assessment with risk level (low, moderate, high) and specific risk factors.
-        Format your response as JSON with the following structure:
+        Provide a VERY CONCISE risk assessment with risk level and specific risk factors (explanation under 500 words).
+        FORMAT YOUR RESPONSE AS JSON with the following structure:
         {{
             "risk_level": "low|moderate|high",
             "risk_factors": ["factor1", "factor2", ...],
-            "explanation": "detailed explanation"
+            "explanation": "concise explanation under 500 words",
+            "specific_questions": {{
+                "是否為 ILD": "是|否",
+                "是否為 Indeterminate": "是|否",
+                "是否為 UIP": "是|否",
+                "是否還有 NSIP pattern": "是|否",
+                "是否還有免風疾病活動性(activity) 病變": "是|否",
+                "是否 ILD 持續進展": "是|否",
+                "是否調整免疫治療藥物": "是|否",
+                "是否建議使用抗肺纖維化藥物": "是|否"
+            }}
         }}
+        
+        Make sure to respond with valid JSON only, and fill in each of the 8 specific questions in Chinese.
         """
     
     def _process_response(self, response):
@@ -202,6 +245,18 @@ class RiskAssessmentAgent(BaseAgent):
         try:
             # Try to parse as JSON first
             result = json.loads(response)
+            # Ensure specific_questions exists
+            if "specific_questions" not in result:
+                result["specific_questions"] = {
+                    "是否為 ILD": "否",
+                    "是否為 Indeterminate": "否",
+                    "是否為 UIP": "否",
+                    "是否還有 NSIP pattern": "否",
+                    "是否還有免風疾病活動性(activity) 病變": "否",
+                    "是否 ILD 持續進展": "否",
+                    "是否調整免疫治療藥物": "否",
+                    "是否建議使用抗肺纖維化藥物": "否"
+                }
             return result
         except json.JSONDecodeError:
             # If not valid JSON, extract information using regex
@@ -215,8 +270,31 @@ class RiskAssessmentAgent(BaseAgent):
                 factors = re.findall(r"[\"']([^\"']+)[\"']", factors_text)
                 risk_factors = factors
             
+            # Try to extract specific questions
+            specific_questions = {}
+            questions = [
+                "是否為 ILD",
+                "是否為 Indeterminate",
+                "是否為 UIP",
+                "是否還有 NSIP pattern",
+                "是否還有免風疾病活動性(activity) 病變",
+                "是否 ILD 持續進展",
+                "是否調整免疫治療藥物",
+                "是否建議使用抗肺纖維化藥物"
+            ]
+            
+            for question in questions:
+                pattern = f"{question}[：:]\s*[是否]"
+                match = re.search(pattern, response)
+                if match:
+                    answer = "是" if "是" in match.group(0) else "否"
+                    specific_questions[question] = answer
+                else:
+                    specific_questions[question] = "否"  # Default to no if not found
+            
             return {
                 "risk_level": risk_level,
                 "risk_factors": risk_factors,
-                "explanation": response
+                "explanation": response,
+                "specific_questions": specific_questions
             }
