@@ -104,7 +104,7 @@ if "api_key_warning_shown" not in st.session_state:
 # Main title
 st.title("ILD Patient Analysis System")
 st.write("A LangChain-powered multi-agent system for collaborative analysis of Interstitial Lung Disease patients")
-st.markdown("### Featuring LLM-enhanced PDF processing and color-coded risk assessment dashboard")
+st.markdown("### Featuring LLM-enhanced PDF processing and comprehensive multi-disciplinary analysis")
 
 # Display API key warning if needed
 if not api_key_available and not st.session_state.api_key_warning_shown:
@@ -356,16 +356,53 @@ if st.session_state.comparison_view and st.session_state.patients_data:
                 specific_questions = analysis.get('specific_questions', {})
                 
                 if not specific_questions:
-                    # Extract answers from the full text for different agent outputs
+                    # Extract answers from the full text with a better approach
                     full_text = analysis.get('diagnosis_analysis', '') + \
                               analysis.get('treatment_recommendations', '') + \
                               analysis.get('progression_assessment', '')
                     
+                    # Set intelligent defaults based on the content
+                    ild_pattern = re.compile(r'interstitial lung disease|ILD|fibrotic|lung fibrosis', re.IGNORECASE)
+                    uip_pattern = re.compile(r'UIP pattern|usual interstitial pneumonia', re.IGNORECASE)
+                    nsip_pattern = re.compile(r'NSIP|non-specific interstitial pneumonia', re.IGNORECASE)
+                    progression_pattern = re.compile(r'progression|progressive|progressing|worsening', re.IGNORECASE)
+                    immune_pattern = re.compile(r'autoimmune activity|rheumatic disease activity|inflammatory|inflammation', re.IGNORECASE)
+                    immune_therapy_pattern = re.compile(r'adjust.*immunosuppressive|modify.*immunosuppressive|change.*immune', re.IGNORECASE)
+                    antifibrotic_pattern = re.compile(r'anti-fibrotic|antifibrotic|nintedanib|pirfenidone', re.IGNORECASE)
+                    
+                    # Set default values based on text content
+                    default_answers = {
+                        "是否為 ILD": "是" if ild_pattern.search(full_text) else "否",
+                        "是否為 Indeterminate": "否",  # Default to no for indeterminate
+                        "是否為 UIP": "是" if uip_pattern.search(full_text) else "否",
+                        "是否還有 NSIP pattern": "是" if nsip_pattern.search(full_text) else "否",
+                        "是否還有免風疾病活動性(activity) 病變": "是" if immune_pattern.search(full_text) else "否",
+                        "是否 ILD 持續進展": "是" if progression_pattern.search(full_text) else "否",
+                        "是否調整免疫治療藥物": "是" if immune_therapy_pattern.search(full_text) else "否",
+                        "是否建議使用抗肺纖維化藥物": "是" if antifibrotic_pattern.search(full_text) else "否"
+                    }
+                    
+                    # First try to find direct answers in the text
                     for question in question_list:
-                        pattern = f"{question}[：:]\s*([是否])"
-                        match = re.search(pattern, full_text)
-                        answer = match.group(1) if match else "否"
-                        specific_questions[question] = answer
+                        found = False
+                        # Try several patterns
+                        patterns = [
+                            f"{question}[：:]\s*([是否])",
+                            f"{question.replace('是否', '')}.*?([是否])",
+                            f"{question}.*?['是'|'否']"
+                        ]
+                        
+                        for pattern in patterns:
+                            match = re.search(pattern, full_text)
+                            if match:
+                                answer = "是" if "是" in match.group(0) else "否"
+                                specific_questions[question] = answer
+                                found = True
+                                break
+                        
+                        if not found:
+                            # If no match found, use the default answer
+                            specific_questions[question] = default_answers[question]
                 
                 # Create patient question data
                 q_data = {"Patient": patient.get('name', 'Unknown')}
@@ -563,11 +600,21 @@ elif st.session_state.selected_patient:
                     answer_color = "green" if answer == "是" else "red"
                     st.markdown(f"**{question}:** <span style='color:{answer_color}'>{answer}</span>", unsafe_allow_html=True)
             else:
-                # Extract answers from the full text for different agent outputs
+                # Extract answers from the full text with a better approach
                 full_text = analysis.get('diagnosis_analysis', '') + \
                            analysis.get('treatment_recommendations', '') + \
                            analysis.get('progression_assessment', '')
                 
+                # Set intelligent defaults based on the content
+                ild_pattern = re.compile(r'interstitial lung disease|ILD|fibrotic|lung fibrosis', re.IGNORECASE)
+                uip_pattern = re.compile(r'UIP pattern|usual interstitial pneumonia', re.IGNORECASE)
+                nsip_pattern = re.compile(r'NSIP|non-specific interstitial pneumonia', re.IGNORECASE)
+                progression_pattern = re.compile(r'progression|progressive|progressing|worsening', re.IGNORECASE)
+                immune_pattern = re.compile(r'autoimmune activity|rheumatic disease activity|inflammatory|inflammation', re.IGNORECASE)
+                immune_therapy_pattern = re.compile(r'adjust.*immunosuppressive|modify.*immunosuppressive|change.*immune', re.IGNORECASE)
+                antifibrotic_pattern = re.compile(r'anti-fibrotic|antifibrotic|nintedanib|pirfenidone', re.IGNORECASE)
+                
+                # Define the questions
                 questions = [
                     "是否為 ILD",
                     "是否為 Indeterminate",
@@ -579,10 +626,41 @@ elif st.session_state.selected_patient:
                     "是否建議使用抗肺纖維化藥物"
                 ]
                 
+                # Set default values based on text content
+                default_answers = {
+                    "是否為 ILD": "是" if ild_pattern.search(full_text) else "否",
+                    "是否為 Indeterminate": "否",  # Default to no for indeterminate
+                    "是否為 UIP": "是" if uip_pattern.search(full_text) else "否",
+                    "是否還有 NSIP pattern": "是" if nsip_pattern.search(full_text) else "否",
+                    "是否還有免風疾病活動性(activity) 病變": "是" if immune_pattern.search(full_text) else "否",
+                    "是否 ILD 持續進展": "是" if progression_pattern.search(full_text) else "否",
+                    "是否調整免疫治療藥物": "是" if immune_therapy_pattern.search(full_text) else "否",
+                    "是否建議使用抗肺纖維化藥物": "是" if antifibrotic_pattern.search(full_text) else "否"
+                }
+                
+                # First try to find direct answers in the text, then fall back to defaults
                 for question in questions:
-                    pattern = f"{question}[：:]\s*([是否])"
-                    match = re.search(pattern, full_text)
-                    answer = match.group(1) if match else "否"
+                    found = False
+                    answer = "否"  # default
+                    
+                    # Try several patterns
+                    patterns = [
+                        f"{question}[：:]\s*([是否])",
+                        f"{question.replace('是否', '')}.*?([是否])",
+                        f"{question}.*?['是'|'否']"
+                    ]
+                    
+                    for pattern in patterns:
+                        match = re.search(pattern, full_text)
+                        if match:
+                            answer = "是" if "是" in match.group(0) else "否"
+                            found = True
+                            break
+                    
+                    if not found:
+                        # If no match found, use the default answer
+                        answer = default_answers[question]
+                    
                     answer_color = "green" if answer == "是" else "red"
                     st.markdown(f"**{question}:** <span style='color:{answer_color}'>{answer}</span>", unsafe_allow_html=True)
             
