@@ -69,8 +69,16 @@ def plot_pulmonary_function_trends(pft_df):
                             values.append(float(match.group(1)))
                 label = metric
             
-            if len(values) == len(dates):
-                ax.plot(dates, values, 'o-', color=colors.get(metric, 'black'), label=label)
+            # Handle case with single data point or multiple points
+            if len(values) > 0:
+                if len(values) == 1:
+                    # For a single data point, just plot a marker
+                    ax.plot(dates, values, 'o', color=colors.get(metric, 'black'), label=label, markersize=8)
+                    # Add a text label with the value
+                    ax.text(dates[0], values[0], f"{values[0]}", fontsize=10, ha='center', va='bottom')
+                else:
+                    # For multiple data points, plot a line with markers
+                    ax.plot(dates, values, 'o-', color=colors.get(metric, 'black'), label=label)
     
     # Set labels and title
     ax.set_xlabel('Date')

@@ -252,11 +252,15 @@ if st.session_state.selected_patient:
         pft_df = pd.DataFrame(patient['pulmonary_tests'])
         st.table(pft_df)
         
-        # Create visualization for PFT trends
-        if len(pft_df) > 1:
-            st.subheader("Pulmonary Function Trends")
-            fig = plot_pulmonary_function_trends(pft_df)
-            st.pyplot(fig)
+        # Create visualization for PFT metrics
+        st.subheader("Pulmonary Function Visualization")
+        if len(pft_df) >= 1:
+            try:
+                fig = plot_pulmonary_function_trends(pft_df)
+                st.pyplot(fig)
+            except Exception as e:
+                st.warning(f"Could not create visualization: {str(e)}")
+                st.info("Note: Multiple PFT measurements over time provide better trend visualization.")
     else:
         st.write("No pulmonary function test results available")
     
