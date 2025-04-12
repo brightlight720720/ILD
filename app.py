@@ -285,7 +285,7 @@ if st.session_state.selected_patient:
         # Tab 1: Specialist Impressions
         with analysis_tabs[0]:
             # Display document discussion points if available
-            if 'discussion_points' in patient:
+            if 'discussion_points' in patient and patient['discussion_points']:
                 st.subheader("Document Discussion Points")
                 for i, point in enumerate(patient['discussion_points']):
                     st.markdown(f"**{i+1}. {point['question']}** {point['answer']}")
