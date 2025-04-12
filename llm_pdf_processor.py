@@ -62,7 +62,7 @@ def extract_patient_info_with_llm(pdf_text):
         12. hrct: Object with date, findings, and impression as strings
         13. discussion_points: Array of objects with question and answer fields
         
-        Return your response in this exact format:
+        Return your response in JSON format using this exact structure:
         {
           "patients": [
             {
@@ -110,7 +110,7 @@ def extract_patient_info_with_llm(pdf_text):
         MAKE SURE to identify and extract ALL patients in the document, likely 4 separate patients.
         """
         
-        user_prompt = f"Extract structured patient information from this ILD patient document text. Remember to identify EACH patient separately (likely 4 patients):\n\n{pdf_text}"
+        user_prompt = f"Extract structured patient information from this ILD patient document text and return as JSON. Remember to identify EACH patient separately (likely 4 patients):\n\n{pdf_text}"
         
         # Call the OpenAI API
         try:
