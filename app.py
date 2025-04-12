@@ -505,7 +505,7 @@ elif st.session_state.selected_patient:
         st.header("Multi-Agent Analysis")
         
         # Create tabs for different analysis views
-        analysis_tabs = st.tabs(["Specialist Impressions", "Discussion Details", "Recommendations", "Risk Assessment Dashboard"])
+        analysis_tabs = st.tabs(["Specialist Impressions", "Discussion Details", "Recommendations"])
         
         # Tab 1: Specialist Impressions
         with analysis_tabs[0]:
@@ -555,29 +555,7 @@ elif st.session_state.selected_patient:
             # Agent Recommendations
             st.subheader("Final Recommendations")
             
-            # Diagnosis Analysis
-            st.markdown("#### Diagnosis Analysis")
-            st.write(analysis.get('diagnosis_analysis', 'No diagnosis analysis available'))
-            
-            # Treatment Recommendations
-            st.markdown("#### Treatment Recommendations")
-            st.write(analysis.get('treatment_recommendations', 'No treatment recommendations available'))
-            
-            # Disease Progression Assessment
-            st.markdown("#### Disease Progression Assessment")
-            st.write(analysis.get('progression_assessment', 'No progression assessment available'))
-            
-            # Risk Assessment
-            st.markdown("#### Risk Assessment")
-            risk_level = analysis.get('risk_level', 'Unknown')
-            risk_factors = analysis.get('risk_factors', [])
-            
-            st.markdown(f"**Risk Level:** {risk_level}")
-            st.markdown("**Risk Factors:**")
-            for factor in risk_factors:
-                st.markdown(f"- {factor}")
-                
-            # Display the 8 specific questions
+            # Display the 8 specific questions first
             st.markdown("#### Key Clinical Questions")
             specific_questions = analysis.get('specific_questions', {})
             if specific_questions:
@@ -607,53 +585,20 @@ elif st.session_state.selected_patient:
                     answer = match.group(1) if match else "否"
                     answer_color = "green" if answer == "是" else "red"
                     st.markdown(f"**{question}:** <span style='color:{answer_color}'>{answer}</span>", unsafe_allow_html=True)
-                
-        # Tab 4: Color-coded Risk Assessment Dashboard
-        with analysis_tabs[3]:
-            st.subheader("Color-coded Risk Assessment Dashboard")
             
-            # Create risk assessment dashboard
-            try:
-                # Generate the risk assessment dashboard
-                risk_dashboard = create_risk_assessment_dashboard(patient, analysis)
+            # Diagnosis Analysis
+            st.markdown("#### Diagnosis Analysis")
+            st.write(analysis.get('diagnosis_analysis', 'No diagnosis analysis available'))
+            
+            # Treatment Recommendations
+            st.markdown("#### Treatment Recommendations")
+            st.write(analysis.get('treatment_recommendations', 'No treatment recommendations available'))
+            
+            # Disease Progression Assessment
+            st.markdown("#### Disease Progression Assessment")
+            st.write(analysis.get('progression_assessment', 'No progression assessment available'))
                 
-                # Display the dashboard
-                st.pyplot(risk_dashboard)
-                
-                # Add legend explanation
-                st.markdown("""
-                ### Risk Level Color Code:
-                - 🟢 **Low Risk** (Green): Minimal concern, stable condition
-                - 🟡 **Moderate Risk** (Yellow): Requires monitoring and possible intervention
-                - 🔴 **High Risk** (Red): Significant concern, requires immediate attention
-                - ⚪ **Unknown** (Gray): Insufficient data to determine risk level
-                """)
-                
-                # Add dashboard explanation
-                with st.expander("How to interpret this dashboard"):
-                    st.markdown("""
-                    ### Dashboard Interpretation Guide
-                    
-                    This color-coded risk assessment dashboard provides a visual representation of various risk factors for the patient:
-                    
-                    1. **Overall Risk Assessment**: A summary of the patient's overall risk level based on all factors.
-                    
-                    2. **Pulmonary Function**: Risk based on pulmonary function test results:
-                       - FVC < 50% or DLCO < 35% = High Risk
-                       - FVC 50-70% or DLCO 35-60% = Moderate Risk
-                       - FVC > 70% and DLCO > 60% = Low Risk
-                    
-                    3. **Disease Activity**: Based on immunologic and inflammatory markers, indicating whether the disease is active or stable.
-                    
-                    4. **Treatment Response**: Indicates how well the patient is responding to current treatment.
-                    
-                    5. **Disease Progression Indicators**: Summarizes whether the disease is progressing, stable, or improving over time.
-                    
-                    The color coding helps identify areas of concern that may require immediate attention or closer monitoring.
-                    """)
-            except Exception as e:
-                st.error(f"Error creating risk assessment dashboard: {str(e)}")
-                st.info("Please ensure that patient data includes pulmonary function tests, laboratory results, and other clinical metrics for a complete risk assessment.")
+
     else:
         st.warning("Analysis results not available for this patient")
 else:
@@ -667,7 +612,7 @@ else:
     2. The system will extract text and use OpenAI to process patient data
     3. Each patient's information is structured with medical context
     4. The multi-agent system performs comprehensive analysis
-    5. Review the results including the color-coded risk dashboard
+    5. Review the results including the 8 key clinical questions
     
     The LangChain multi-agent system includes:
     - A coordinator agent that facilitates the discussion
@@ -676,11 +621,10 @@ else:
     - Comprehensive analysis with specialist perspectives
     
     The analysis results include:
+    - Key clinical questions (是否為 ILD, 是否為 UIP, etc.) with clear Yes/No answers
     - Specialist impressions from each medical expert
     - Complete multi-disciplinary team discussion
     - Diagnosis verification and assessment
     - Treatment recommendations
     - Disease progression tracking
-    - Color-coded risk assessment dashboard
-    - Visual representation of key patient metrics
     """)
