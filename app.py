@@ -330,6 +330,70 @@ if st.session_state.comparison_view and st.session_state.patients_data:
         # Display as a table
         st.table(pd.DataFrame(risk_comparison))
         
+        # Create a comparison of the 8 specific questions
+        st.subheader("Clinical Questions Comparison")
+        
+        # Define the questions for reference
+        question_list = [
+            "是否為 ILD",
+            "是否為 Indeterminate",
+            "是否為 UIP",
+            "是否還有 NSIP pattern",
+            "是否還有免風疾病活動性(activity) 病變",
+            "是否 ILD 持續進展",
+            "是否調整免疫治療藥物",
+            "是否建議使用抗肺纖維化藥物"
+        ]
+        
+        # Create DataFrame for questions comparison
+        questions_data = []
+        
+        for patient in st.session_state.patients_data:
+            analysis = next((a for a in st.session_state.analysis_results if a['patient_id'] == patient['id']), None)
+            
+            if analysis:
+                # Get the specific questions or extract from text
+                specific_questions = analysis.get('specific_questions', {})
+                
+                if not specific_questions:
+                    # Extract answers from the full text for different agent outputs
+                    full_text = analysis.get('diagnosis_analysis', '') + \
+                              analysis.get('treatment_recommendations', '') + \
+                              analysis.get('progression_assessment', '')
+                    
+                    for question in question_list:
+                        pattern = f"{question}[：:]\s*([是否])"
+                        match = re.search(pattern, full_text)
+                        answer = match.group(1) if match else "否"
+                        specific_questions[question] = answer
+                
+                # Create patient question data
+                q_data = {"Patient": patient.get('name', 'Unknown')}
+                
+                # Add answers for each question
+                for q in question_list:
+                    q_data[q] = specific_questions.get(q, "否")
+                    
+                questions_data.append(q_data)
+        
+        if questions_data:
+            # Create the DataFrame
+            questions_df = pd.DataFrame(questions_data)
+            
+            # Display with colored cells based on yes/no
+            # Format the DataFrame with colored text
+            def highlight_yes_no(val):
+                if val == "是":
+                    return 'color: green; font-weight: bold'
+                elif val == "否":
+                    return 'color: red'
+                else:
+                    return ''
+            
+            # Apply the styling
+            styled_df = questions_df.style.applymap(highlight_yes_no, subset=question_list)
+            st.dataframe(styled_df)
+        
         # Show individual risk dashboards
         st.subheader("Individual Risk Dashboards")
         
