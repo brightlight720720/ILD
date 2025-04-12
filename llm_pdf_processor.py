@@ -41,9 +41,11 @@ def extract_patient_info_with_llm(pdf_text):
         # Define the extraction prompt
         system_prompt = """
         You are a medical data extraction specialist. Extract structured patient information from the provided text from a PDF about 
-        Interstitial Lung Disease (ILD) patient cases. The text is from a multi-disciplinary discussion meeting.
-        
-        Extract information for EACH patient in the document. Some patients might have partial information, extract whatever is available.
+        Interstitial Lung Disease (ILD) patient cases. The text is from a multi-disciplinary discussion meeting that contains information
+        for MULTIPLE PATIENTS. You MUST identify each separate patient and extract their information individually.
+
+        IMPORTANT: Look for patient separators like "Case X:" or "Discussion X:" or headers that indicate a new patient case.
+        The document likely contains 4 separate patient cases.
         
         For each patient, extract these fields (if available):
         1. id: Patient ID number (string)
@@ -53,7 +55,7 @@ def extract_patient_info_with_llm(pdf_text):
         5. diagnosis: Primary diagnosis (string)
         6. imaging_diagnosis: Imaging diagnosis or impression (string)
         7. case_summary: Brief summary of the patient's condition (string)
-        8. medications: Medications as simple key-value pairs
+        8. medications: Medications as simple key-value pairs where keys are medication categories and values are the specific medications
         9. immunologic_profile: Laboratory immunologic tests as key-value pairs
         10. biologic_markers: Biological markers as key-value pairs
         11. pulmonary_tests: Array of test results with date, FVC, FEV1, etc. as strings
@@ -77,44 +79,82 @@ def extract_patient_info_with_llm(pdf_text):
           ]
         }
         
+        For medications, use a structure like:
+        "medications": {
+          "Bronchodilator": "medication names",
+          "Immunosuppressive agent": "medication names",
+          "Anti-fibrotic agent": "medication names"
+        }
+        
+        For pulmonary_tests, use a structure like:
+        "pulmonary_tests": [
+          {
+            "date": "test date",
+            "FVC": "value",
+            "FEV1": "value",
+            "FEV1/FVC": "value",
+            "DLCO": "value"
+          }
+        ]
+        
+        For discussion_points, use a structure like:
+        "discussion_points": [
+          {
+            "question": "Is this patient's condition considered ILD?",
+            "answer": "Yes, based on..."
+          }
+        ]
+        
         If no ID or name is found, use "Patient 1" and "ID-1" for the first patient.
-        Use null for any missing fields.
-        Keep the JSON structure simple and avoid nested objects beyond what's specified.
+        Use null for any missing fields, not empty strings or objects.
+        MAKE SURE to identify and extract ALL patients in the document, likely 4 separate patients.
         """
         
-        user_prompt = f"Extract structured patient information from this ILD patient document text:\n\n{pdf_text}"
+        user_prompt = f"Extract structured patient information from this ILD patient document text. Remember to identify EACH patient separately (likely 4 patients):\n\n{pdf_text}"
         
         # Call the OpenAI API
-        response = openai_client.chat.completions.create(
-            model="gpt-4o",  # Use the latest model for best results
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.3,  # Lower temperature for more deterministic output
-            max_tokens=4000
-        )
+        try:
+            print("Sending request to OpenAI for patient information extraction...")
+            response = openai_client.chat.completions.create(
+                model="gpt-4o",  # Use the latest model for best results
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.3,  # Lower temperature for more deterministic output
+                max_tokens=4000
+            )
+            print("Received response from OpenAI")
+        except Exception as api_error:
+            print(f"Error calling OpenAI API: {str(api_error)}")
+            raise
         
         # Extract and parse the JSON response with robust error handling
         try:
             content = response.choices[0].message.content
             # Clean the content in case there are any invalid characters
             content = content.replace('\n', ' ').replace('\r', ' ')
+            print(f"Parsing JSON response. Response length: {len(content)}")
             result = json.loads(content)
             
             # Ensure the result is an array of patients
             patients = result.get("patients", [])
+            print(f"Found {len(patients)} patients in the response")
+            
             if not isinstance(patients, list):
                 # If not a list, try to see if the entire result is the patient array
                 if isinstance(result, list):
                     patients = result
+                    print("Converted result to patient list")
                 else:
                     # Last resort: wrap single patient in a list
                     if isinstance(result, dict) and ("id" in result or "name" in result):
                         patients = [result]
+                        print("Converted single patient dict to list")
                     else:
                         patients = []
+                        print("No patients found in response")
         except json.JSONDecodeError as e:
             print(f"Error parsing JSON from OpenAI response: {str(e)}")
             print(f"Response content: {response.choices[0].message.content[:200]}...")
@@ -125,12 +165,41 @@ def extract_patient_info_with_llm(pdf_text):
         
         # Process each patient to ensure required fields
         for i, patient in enumerate(patients):
+            print(f"Processing patient {i+1}")
             # Ensure required fields exist
             if "id" not in patient or not patient["id"]:
                 patient["id"] = f"ID-{i+1}"
             if "name" not in patient or not patient["name"]:
                 patient["name"] = f"Patient {i+1}"
+            
+            # Ensure discussion_points is properly formatted
+            if "discussion_points" in patient and patient["discussion_points"] is None:
+                patient["discussion_points"] = []
+                
+            # Check if pulmonary_tests exists and is properly formatted
+            if "pulmonary_tests" in patient and not isinstance(patient["pulmonary_tests"], list):
+                if patient["pulmonary_tests"] is None:
+                    patient["pulmonary_tests"] = []
+                else:
+                    # Try to convert non-list to a list with one entry
+                    try:
+                        patient["pulmonary_tests"] = [patient["pulmonary_tests"]]
+                    except:
+                        patient["pulmonary_tests"] = []
+            
+            # Check if medications is properly formatted
+            if "medications" in patient and not isinstance(patient["medications"], dict):
+                if patient["medications"] is None:
+                    patient["medications"] = {}
+                else:
+                    # Try to convert to a dict if it's not already
+                    try:
+                        if isinstance(patient["medications"], str):
+                            patient["medications"] = {"Other": patient["medications"]}
+                    except:
+                        patient["medications"] = {}
         
+        print(f"Returning {len(patients)} processed patients")
         return patients
     
     except Exception as e:

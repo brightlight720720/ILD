@@ -188,16 +188,172 @@ with st.sidebar:
             if 'id' not in p:
                 st.session_state.patients_data[i]['id'] = f"ID-{i+1}"
                 
-        selected_patient_idx = st.selectbox(
-            "Select a patient to view details",
-            range(len(patient_names)),
-            format_func=lambda i: patient_names[i]
-        )
+        # Add option to view all patients in comparison view
+        view_options = ["Single Patient View", "Multi-Patient Comparison"]
+        view_mode = st.radio("Select view mode", view_options)
         
-        st.session_state.selected_patient = st.session_state.patients_data[selected_patient_idx]
+        if view_mode == "Single Patient View":
+            selected_patient_idx = st.selectbox(
+                "Select a patient to view details",
+                range(len(patient_names)),
+                format_func=lambda i: patient_names[i]
+            )
+            
+            st.session_state.selected_patient = st.session_state.patients_data[selected_patient_idx]
+            st.session_state.comparison_view = False
+        else:
+            st.session_state.comparison_view = True
+            # No need to select a specific patient in comparison view
+
+# Initialize the comparison view flag if not present
+if "comparison_view" not in st.session_state:
+    st.session_state.comparison_view = False
 
 # Main content area
-if st.session_state.selected_patient:
+if st.session_state.comparison_view and st.session_state.patients_data:
+    # Multi-Patient Comparison View
+    st.header("Multi-Patient Comparison View")
+    
+    # Create tabs for different comparison sections
+    comparison_tabs = st.tabs(["Basic Information", "Diagnosis & Findings", "Multi-Agent Analysis", "Risk Assessment"])
+    
+    # Tab 1: Basic Information Comparison
+    with comparison_tabs[0]:
+        st.subheader("Patient Information Comparison")
+        
+        # Create a DataFrame for basic patient info
+        basic_info = []
+        for patient in st.session_state.patients_data:
+            info = {
+                "ID": patient.get('id', 'N/A'),
+                "Name": patient.get('name', 'N/A'),
+                "Case Date": patient.get('case_date', 'N/A'),
+                "Diagnosis": patient.get('diagnosis', 'N/A')
+            }
+            basic_info.append(info)
+        
+        # Display as a table
+        st.table(pd.DataFrame(basic_info))
+    
+    # Tab 2: Diagnosis & Findings
+    with comparison_tabs[1]:
+        st.subheader("Diagnosis and HRCT Findings")
+        
+        findings = []
+        for patient in st.session_state.patients_data:
+            finding = {
+                "ID": patient.get('id', 'N/A'),
+                "Name": patient.get('name', 'N/A'),
+                "Diagnosis": patient.get('diagnosis', 'N/A'),
+                "Imaging Diagnosis": patient.get('imaging_diagnosis', 'N/A')
+            }
+            
+            # Add HRCT date and impression if available
+            if 'hrct' in patient and patient['hrct']:
+                finding["HRCT Date"] = patient['hrct'].get('date', 'N/A')
+                finding["HRCT Impression"] = patient['hrct'].get('impression', 'N/A')[:100] + "..." if len(patient['hrct'].get('impression', 'N/A')) > 100 else patient['hrct'].get('impression', 'N/A')
+            
+            findings.append(finding)
+        
+        # Display as a table
+        st.table(pd.DataFrame(findings))
+        
+        # Show detailed HRCT findings in expandable sections
+        st.subheader("Detailed HRCT Findings")
+        for i, patient in enumerate(st.session_state.patients_data):
+            with st.expander(f"{patient.get('name', f'Patient {i+1}')} - HRCT Details"):
+                if 'hrct' in patient and patient['hrct']:
+                    st.markdown(f"**Date:** {patient['hrct'].get('date', 'N/A')}")
+                    st.markdown("**Findings:**")
+                    st.write(patient['hrct'].get('findings', 'No detailed findings available'))
+                    st.markdown("**Impression:**")
+                    st.write(patient['hrct'].get('impression', 'No impression available'))
+                else:
+                    st.write("No HRCT findings available")
+    
+    # Tab 3: Multi-Agent Analysis Comparison
+    with comparison_tabs[2]:
+        st.subheader("Multi-Agent Analysis Comparison")
+        
+        # Show analysis results in expandable sections organized by patient
+        for i, patient in enumerate(st.session_state.patients_data):
+            analysis = next((a for a in st.session_state.analysis_results if a['patient_id'] == patient['id']), None)
+            
+            if analysis:
+                with st.expander(f"{patient.get('name', f'Patient {i+1}')} - Analysis Summary"):
+                    # Summary of key findings
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown("#### Diagnosis Analysis")
+                        st.write(analysis.get('diagnosis_analysis', 'No diagnosis analysis available')[:200] + "..." if len(analysis.get('diagnosis_analysis', 'No diagnosis analysis available')) > 200 else analysis.get('diagnosis_analysis', 'No diagnosis analysis available'))
+                    
+                    with col2:
+                        st.markdown("#### Progression Assessment")
+                        st.write(analysis.get('progression_assessment', 'No progression assessment available')[:200] + "..." if len(analysis.get('progression_assessment', 'No progression assessment available')) > 200 else analysis.get('progression_assessment', 'No progression assessment available'))
+                    
+                    # Treatment recommendations
+                    st.markdown("#### Treatment Recommendations")
+                    st.write(analysis.get('treatment_recommendations', 'No treatment recommendations available')[:300] + "..." if len(analysis.get('treatment_recommendations', 'No treatment recommendations available')) > 300 else analysis.get('treatment_recommendations', 'No treatment recommendations available'))
+                    
+                    # View full analysis button
+                    if st.button(f"View Full Analysis for {patient.get('name', f'Patient {i+1}')}"):
+                        st.session_state.selected_patient = patient
+                        st.session_state.comparison_view = False
+                        st.rerun()
+            else:
+                st.warning(f"No analysis results available for {patient.get('name', f'Patient {i+1}')}")
+    
+    # Tab 4: Risk Assessment Comparison
+    with comparison_tabs[3]:
+        st.subheader("Risk Assessment Comparison")
+        
+        # Create a table comparing risk levels
+        risk_comparison = []
+        for patient in st.session_state.patients_data:
+            analysis = next((a for a in st.session_state.analysis_results if a['patient_id'] == patient['id']), None)
+            
+            if analysis:
+                risk_info = {
+                    "ID": patient.get('id', 'N/A'),
+                    "Name": patient.get('name', 'N/A'),
+                    "Overall Risk": analysis.get('risk_level', 'Unknown'),
+                    "Top Risk Factors": ", ".join(analysis.get('risk_factors', [])[:2]) if analysis.get('risk_factors') else "None identified"
+                }
+                risk_comparison.append(risk_info)
+        
+        # Display as a table
+        st.table(pd.DataFrame(risk_comparison))
+        
+        # Show individual risk dashboards
+        st.subheader("Individual Risk Dashboards")
+        
+        for i, patient in enumerate(st.session_state.patients_data):
+            analysis = next((a for a in st.session_state.analysis_results if a['patient_id'] == patient['id']), None)
+            
+            if analysis:
+                with st.expander(f"{patient.get('name', f'Patient {i+1}')} - Risk Dashboard"):
+                    try:
+                        # Generate the risk assessment dashboard
+                        risk_dashboard = create_risk_assessment_dashboard(patient, analysis)
+                        
+                        # Display the dashboard
+                        st.pyplot(risk_dashboard)
+                    except Exception as e:
+                        st.error(f"Error creating risk dashboard: {str(e)}")
+            else:
+                st.warning(f"No risk assessment available for {patient.get('name', f'Patient {i+1}')}")
+        
+        # Add legend explanation
+        with st.expander("Risk Level Color Code Legend"):
+            st.markdown("""
+            - 🟢 **Low Risk** (Green): Minimal concern, stable condition
+            - 🟡 **Moderate Risk** (Yellow): Requires monitoring and possible intervention
+            - 🔴 **High Risk** (Red): Significant concern, requires immediate attention
+            - ⚪ **Unknown** (Gray): Insufficient data to determine risk level
+            """)
+
+elif st.session_state.selected_patient:
     patient = st.session_state.selected_patient
     analysis = next((a for a in st.session_state.analysis_results if a['patient_id'] == patient['id']), None)
     
