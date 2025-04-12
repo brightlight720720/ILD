@@ -308,6 +308,89 @@ def run_multidisciplinary_meeting(patient_data):
     conclusion_response = coordinator.invoke({"input": conclusion_prompt})
     results["conclusion"] = conclusion_response['output']
     
+    # Have the coordinator answer the 8 key clinical questions in Chinese with simple yes/no answers
+    key_questions = {
+        "是否為 ILD": "Is this patient's condition considered ILD?",
+        "是否為 Indeterminate": "Is this an indeterminate case?",
+        "是否為 UIP": "Does the patient have UIP pattern?",
+        "是否還有 NSIP pattern": "Is there any NSIP pattern present?", 
+        "是否還有免風疾病活動性(activity) 病變": "Is there ongoing rheumatic disease activity?",
+        "是否 ILD 持續進展": "Is the ILD progressing?",
+        "是否調整免疫治療藥物": "Should we adjust the immunosuppressive therapy?",
+        "是否建議使用抗肺纖維化藥物": "Should we recommend anti-fibrotic medication?"
+    }
+    
+    # Create a specific prompt for the coordinator to answer all 8 questions with clear yes/no
+    questions_prompt = """
+    Based on our team's discussion, please provide clear YES (是) or NO (否) answers to each of the following 8 key clinical questions:
+    
+    1. 是否為 ILD? (Is this patient's condition considered ILD?)
+    2. 是否為 Indeterminate? (Is this an indeterminate case?)
+    3. 是否為 UIP? (Does the patient have UIP pattern?)
+    4. 是否還有 NSIP pattern? (Is there any NSIP pattern present?)
+    5. 是否還有免風疾病活動性(activity) 病變? (Is there ongoing rheumatic disease activity?)
+    6. 是否 ILD 持續進展? (Is the ILD progressing?)
+    7. 是否調整免疫治療藥物? (Should we adjust the immunosuppressive therapy?)
+    8. 是否建議使用抗肺纖維化藥物? (Should we recommend anti-fibrotic medication?)
+    
+    For each question, provide ONLY the answer "是" (YES) or "否" (NO), formatted exactly as:
+    是否為 ILD: 是
+    """
+    
+    questions_response = coordinator.invoke({"input": questions_prompt})
+    
+    # Parse the response to extract the yes/no answers
+    specific_questions = {}
+    response_text = questions_response['output']
+    
+    # Extract answers for each question
+    for zh_question, en_question in key_questions.items():
+        # Try with the Chinese question first
+        for line in response_text.split('\n'):
+            if zh_question in line:
+                answer = "是" if "是" in line.split(":", 1)[1].strip() else "否"
+                specific_questions[zh_question] = answer
+                break
+        
+        # If not found, try with simplified patterns
+        if zh_question not in specific_questions:
+            # Extract keywords for each question
+            keywords = {
+                "是否為 ILD": ["ILD", "interstitial lung disease"],
+                "是否為 Indeterminate": ["indeterminate", "uncertain", "unclear"],
+                "是否為 UIP": ["UIP", "usual interstitial pneumonia"],
+                "是否還有 NSIP pattern": ["NSIP", "non-specific interstitial pneumonia"],
+                "是否還有免風疾病活動性(activity) 病變": ["rheumatic", "autoimmune", "activity"],
+                "是否 ILD 持續進展": ["progress", "progression", "progressing", "worsen"],
+                "是否調整免疫治療藥物": ["adjust", "immunosuppressive", "change therapy"],
+                "是否建議使用抗肺纖維化藥物": ["anti-fibrotic", "antifibrotic", "pirfenidone", "nintedanib"]
+            }
+            
+            # Set default answer based on context clues in the discussion
+            for question_num, (question, line_num) in enumerate(zip(DISCUSSION_QUESTIONS, range(1, 9))):
+                line_prefix = f"{line_num}."
+                for line in response_text.split('\n'):
+                    if line_prefix in line and any(kw.lower() in line.lower() for kw in keywords[zh_question]):
+                        answer = "是" if "yes" in line.lower() or "是" in line else "否"
+                        specific_questions[zh_question] = answer
+                        break
+            
+            # If still not found, use default based on DISCUSSION_QUESTIONS answers
+            if zh_question not in specific_questions:
+                for i, q in enumerate(DISCUSSION_QUESTIONS):
+                    if any(kw in q.lower() for kw in [k.lower() for k in keywords[zh_question]]):
+                        for line in response_text.split('\n'):
+                            if f"{i+1}." in line:
+                                answer = "是" if "yes" in line.lower() or "是" in line else "否"
+                                specific_questions[zh_question] = answer
+                                break
+            
+            # Final fallback if still not found
+            if zh_question not in specific_questions:
+                specific_questions[zh_question] = "否"  # Default to "No"
+    
+    results["specific_questions"] = specific_questions
+    
     # Extract specific analyses
     diagnosis_prompt = "Based on our discussion, please provide a concise diagnosis analysis for this patient."
     diagnosis_response = coordinator.invoke({"input": diagnosis_prompt})
@@ -382,7 +465,8 @@ def analyze_patient_with_langchain(patient_data):
             'risk_factors': results['risk_assessment']['risk_factors'],
             'specialist_impressions': results['specialist_impressions'],
             'meeting_discussion': results['discussion_points'],
-            'meeting_conclusion': results['conclusion']
+            'meeting_conclusion': results['conclusion'],
+            'specific_questions': results['specific_questions']  # Include the directly answered key clinical questions
         }
         
         return analysis_results
@@ -395,7 +479,8 @@ def analyze_patient_with_langchain(patient_data):
             'treatment_recommendations': "No recommendations available due to analysis error",
             'progression_assessment': "No assessment available due to analysis error",
             'risk_level': "Unknown",
-            'risk_factors': ["Analysis error"]
+            'risk_factors': ["Analysis error"],
+            'specific_questions': {}  # Empty specific questions for error case
         }
 
 def analyze_patients_with_langchain(patients_data):
