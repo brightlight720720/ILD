@@ -135,9 +135,13 @@ with st.sidebar:
     # Get available providers
     available_providers = llm_manager.get_available_providers()
     
-    # Default to OpenAI if it's available
-    if not available_providers and api_key_available:
-        available_providers = [OPENAI]
+    # Always include OpenAI if API key is available
+    if api_key_available and OPENAI not in available_providers:
+        available_providers.append(OPENAI)
+        
+    # For testing, we can show Ollama even if connection fails
+    if OLLAMA not in available_providers:
+        available_providers.append(OLLAMA)
     
     if available_providers:  
         # Provider selection

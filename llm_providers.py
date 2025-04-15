@@ -74,9 +74,10 @@ class LLMManager:
             if self.ollama_available is None:
                 self.check_ollama_connection()
             
+            # Allow setting to Ollama even if not available, for UI display purposes
+            # Just log a warning that operations may fail
             if not self.ollama_available:
-                print("Error: Ollama is not available or not running")
-                return False
+                print("Warning: Ollama is not available or not running, but setting provider anyway. Operations may fail.")
         
         self.current_provider = provider
         print(f"LLM provider set to: {provider}")
@@ -145,23 +146,46 @@ class LLMManager:
         
         Returns:
             LangChain model: A model that can be used in LangChain
+        
+        Raises:
+            ValueError: If no LLM provider is available
         """
         if self.current_provider == OPENAI:
+            if not self.openai_available:
+                raise ValueError("OpenAI API key is not configured")
+                
             return ChatOpenAI(
                 api_key=self.openai_api_key,
                 model=self.models[OPENAI],
                 temperature=temperature
             )
         elif self.current_provider == OLLAMA:
-            return ChatOllama(
-                base_url=self.ollama_url,
-                model=self.models[OLLAMA],
-                temperature=temperature
-            )
+            # Try to use Ollama, but fall back to OpenAI if it's not available
+            # and OpenAI is available
+            try:
+                return ChatOllama(
+                    base_url=self.ollama_url,
+                    model=self.models[OLLAMA],
+                    temperature=temperature
+                )
+            except Exception as e:
+                if self.openai_available:
+                    print(f"Ollama connection failed, falling back to OpenAI: {str(e)}")
+                    # Switch the current provider to OpenAI
+                    self.current_provider = OPENAI
+                    return ChatOpenAI(
+                        api_key=self.openai_api_key,
+                        model=self.models[OPENAI],
+                        temperature=temperature
+                    )
+                else:
+                    raise ValueError(f"Ollama connection failed and OpenAI is not available: {str(e)}")
         else:
-            # Fallback to OpenAI if available
+            # Unknown provider, fall back to OpenAI if available
             if self.openai_available:
                 print(f"Unknown provider '{self.current_provider}', falling back to OpenAI")
+                # Switch the current provider to OpenAI
+                self.current_provider = OPENAI
                 return ChatOpenAI(
                     api_key=self.openai_api_key,
                     model=self.models[OPENAI],

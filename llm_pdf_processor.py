@@ -3,14 +3,11 @@ import json
 import openai
 from openai import OpenAI
 from pdf_processor import extract_text_from_pdf, clean_pdf_text
+from llm_providers import llm_manager, OPENAI, OLLAMA
 
-# Initialize the OpenAI client
+# Check if an OpenAI API key is available (for legacy code path)
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    print("Warning: OpenAI API key not found in environment variables")
-    OPENAI_API_KEY = "MISSING_KEY" # This will cause the API to fail properly
-openai_client = OpenAI(api_key=OPENAI_API_KEY)
-print(f"OpenAI client initialized. API key available: {bool(OPENAI_API_KEY and OPENAI_API_KEY != 'MISSING_KEY')}")
+api_key_available = OPENAI_API_KEY is not None and len(OPENAI_API_KEY.strip()) > 0
 
 def extract_patient_info_with_llm(pdf_text):
     """
@@ -112,30 +109,62 @@ def extract_patient_info_with_llm(pdf_text):
         
         user_prompt = f"Extract structured patient information from this ILD patient document text and return as JSON. Remember to identify EACH patient separately (likely 4 patients):\n\n{pdf_text}"
         
-        # Call the OpenAI API
+        # Call the LLM API using our provider manager
         try:
-            print("Sending request to OpenAI for patient information extraction...")
-            response = openai_client.chat.completions.create(
-                model="gpt-4o",  # Use the latest model for best results
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.3,  # Lower temperature for more deterministic output
-                max_tokens=4000
-            )
-            print("Received response from OpenAI")
+            # Get current provider and model information
+            current_provider = llm_manager.get_current_provider()
+            current_model = llm_manager.get_current_model()
+            
+            print(f"Sending request to {current_provider.upper()} model {current_model} for patient information extraction...")
+            
+            # If we're using OpenAI, we can use the OpenAI client directly for more control
+            if current_provider == OPENAI and api_key_available:
+                openai_client = OpenAI(api_key=OPENAI_API_KEY)
+                response = openai_client.chat.completions.create(
+                    model=current_model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    response_format={"type": "json_object"},
+                    temperature=0.3,  # Lower temperature for more deterministic output
+                    max_tokens=4000
+                )
+                print(f"Received response from {current_provider.upper()}")
+                
+                # Extract content from OpenAI response
+                content = response.choices[0].message.content
+            else:
+                # Use LangChain with the LLM manager
+                chat_model = llm_manager.get_chat_model(temperature=0.3)
+                
+                # Create messages in the format expected by LangChain
+                from langchain_core.messages import SystemMessage, HumanMessage
+                messages = [
+                    SystemMessage(content=system_prompt),
+                    HumanMessage(content=user_prompt)
+                ]
+                
+                # Call the model through LangChain
+                response = chat_model.invoke(messages)
+                print(f"Received response from {current_provider.upper()} via LangChain")
+                
+                # Extract content from LangChain response
+                if hasattr(response, 'content'):
+                    content = response.content
+                else:
+                    content = str(response)
         except Exception as api_error:
-            print(f"Error calling OpenAI API: {str(api_error)}")
+            print(f"Error calling LLM API: {str(api_error)}")
             raise
         
         # Extract and parse the JSON response with robust error handling
         try:
-            content = response.choices[0].message.content
             # Clean the content in case there are any invalid characters
             content = content.replace('\n', ' ').replace('\r', ' ')
             print(f"Parsing JSON response. Response length: {len(content)}")
+            
+            # Try to parse the JSON content
             result = json.loads(content)
             
             # Ensure the result is an array of patients
@@ -156,11 +185,11 @@ def extract_patient_info_with_llm(pdf_text):
                         patients = []
                         print("No patients found in response")
         except json.JSONDecodeError as e:
-            print(f"Error parsing JSON from OpenAI response: {str(e)}")
-            print(f"Response content: {response.choices[0].message.content[:200]}...")
+            print(f"Error parsing JSON from LLM response: {str(e)}")
+            print(f"Response content preview: {content[:200]}...")
             patients = []
         except Exception as e:
-            print(f"Unexpected error processing OpenAI response: {str(e)}")
+            print(f"Unexpected error processing LLM response: {str(e)}")
             patients = []
         
         # Process each patient to ensure required fields
