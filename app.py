@@ -13,8 +13,7 @@ from langchain_agents import analyze_patients_with_langchain
 from visualization import (
     plot_pulmonary_function_trends,
     create_lab_results_radar,
-    create_patient_summary_table,
-    create_risk_assessment_dashboard
+    create_patient_summary_table
 )
 from utils import get_session_id
 
@@ -308,7 +307,7 @@ if st.session_state.comparison_view and st.session_state.patients_data:
     st.header("Multi-Patient Comparison View")
     
     # Create tabs for different comparison sections
-    comparison_tabs = st.tabs(["Basic Information", "Diagnosis & Findings", "Multi-Agent Analysis", "Risk Assessment"])
+    comparison_tabs = st.tabs(["Basic Information", "Diagnosis & Findings", "Multi-Agent Analysis"])
     
     # Tab 1: Basic Information Comparison
     with comparison_tabs[0]:
@@ -397,31 +396,8 @@ if st.session_state.comparison_view and st.session_state.patients_data:
             else:
                 st.warning(f"No analysis results available for {patient.get('name', f'Patient {i+1}')}")
     
-    # Tab 4: Risk Assessment Comparison
-    with comparison_tabs[3]:
-        st.subheader("Risk Assessment Comparison")
-        
-        # Create a table comparing risk levels
-        risk_comparison = []
-        for patient in st.session_state.patients_data:
-            analysis = next((a for a in st.session_state.analysis_results if a['patient_id'] == patient['id']), None)
-            
-            if analysis:
-                # Get the specific questions from risk assessment if available
-                questions = analysis.get('specific_questions', {})
-                
-                # Create a dictionary with all the key info
-                risk_info = {
-                    "ID": patient.get('id', 'N/A'),
-                    "Name": patient.get('name', 'N/A'),
-                    "Overall Risk": analysis.get('risk_level', 'Unknown'),
-                    "Top Risk Factors": ", ".join(analysis.get('risk_factors', [])[:2]) if analysis.get('risk_factors') else "None identified"
-                }
-                risk_comparison.append(risk_info)
-        
-        # Display as a table
-        st.table(pd.DataFrame(risk_comparison))
-        
+    # Add clinical questions comparison to the Multi-Agent Analysis tab
+    with comparison_tabs[2]:
         # Create a comparison of the 8 specific questions
         st.subheader("Clinical Questions Comparison")
         
@@ -477,34 +453,6 @@ if st.session_state.comparison_view and st.session_state.patients_data:
             # Apply the styling
             styled_df = questions_df.style.applymap(highlight_yes_no, subset=question_list)
             st.dataframe(styled_df)
-        
-        # Show individual risk dashboards
-        st.subheader("Individual Risk Dashboards")
-        
-        for i, patient in enumerate(st.session_state.patients_data):
-            analysis = next((a for a in st.session_state.analysis_results if a['patient_id'] == patient['id']), None)
-            
-            if analysis:
-                with st.expander(f"{patient.get('name', f'Patient {i+1}')} - Risk Dashboard"):
-                    try:
-                        # Generate the risk assessment dashboard
-                        risk_dashboard = create_risk_assessment_dashboard(patient, analysis)
-                        
-                        # Display the dashboard
-                        st.pyplot(risk_dashboard)
-                    except Exception as e:
-                        st.error(f"Error creating risk dashboard: {str(e)}")
-            else:
-                st.warning(f"No risk assessment available for {patient.get('name', f'Patient {i+1}')}")
-        
-        # Add legend explanation
-        with st.expander("Risk Level Color Code Legend"):
-            st.markdown("""
-            - 🟢 **Low Risk** (Green): Minimal concern, stable condition
-            - 🟡 **Moderate Risk** (Yellow): Requires monitoring and possible intervention
-            - 🔴 **High Risk** (Red): Significant concern, requires immediate attention
-            - ⚪ **Unknown** (Gray): Insufficient data to determine risk level
-            """)
 
 elif st.session_state.selected_patient:
     patient = st.session_state.selected_patient
@@ -589,7 +537,7 @@ elif st.session_state.selected_patient:
         st.header("Multi-Agent Analysis")
         
         # Create tabs for different analysis views
-        analysis_tabs = st.tabs(["Specialist Impressions", "Discussion Details", "Recommendations"])
+        analysis_tabs = st.tabs(["Recommendations", "Specialist Impressions", "Discussion Details"])
         
         # Tab 1: Specialist Impressions
         with analysis_tabs[0]:
