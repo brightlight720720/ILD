@@ -18,7 +18,7 @@ from langchain.prompts import MessagesPlaceholder
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain.agents.agent import AgentExecutor
 from langchain.agents.openai_functions_agent.base import OpenAIFunctionsAgent
-from langchain_openai import ChatOpenAI
+from llm_providers import llm_manager
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.tools import BaseTool
 
@@ -84,7 +84,7 @@ class MedicalLiteratureTool(BaseTool):
         return self._run(query)
 
 # Define specialized LLM agents for each medical specialty
-def create_specialist(model, specialist_type, specialist_description, tools, temperature=0.2):
+def create_specialist(specialist_type, specialist_description, tools, temperature=0.2):
     """Create a specialist agent with a specific medical specialty"""
     
     # Define the system message that establishes the agent's specialty and role
@@ -109,7 +109,7 @@ best care plan for the patient."""
     )
     
     # Create the LLM for the specialist with appropriate temperature
-    llm = ChatOpenAI(temperature=temperature, model=model)
+    llm = llm_manager.get_chat_model(temperature=temperature)
     
     # Create the specialist agent
     agent = OpenAIFunctionsAgent(llm=llm, tools=tools, prompt=prompt)
@@ -128,7 +128,7 @@ best care plan for the patient."""
     )
 
 # Create the coordinator to facilitate the meeting
-def create_coordinator(model, tools):
+def create_coordinator(tools):
     """Create a coordinator agent to facilitate the multidisciplinary meeting"""
     
     system_message = """You are the coordinator of a multidisciplinary ILD meeting.
@@ -151,7 +151,7 @@ treatment plan."""
         extra_prompt_messages=[MessagesPlaceholder(variable_name="chat_history")]
     )
     
-    llm = ChatOpenAI(temperature=0.2, model=model)
+    llm = llm_manager.get_chat_model(temperature=0.2)
     
     agent = OpenAIFunctionsAgent(llm=llm, tools=tools, prompt=prompt)
     
@@ -175,13 +175,9 @@ def setup_multidisciplinary_meeting(patient_data):
     medical_literature_tool = MedicalLiteratureTool()
     tools = [patient_data_tool, medical_literature_tool]
     
-    # Define model to use - Using gpt-4o which is the newest model
-    model = "gpt-4o"
-    
     # Define specialists
     specialists = {
         "pulmonologist": create_specialist(
-            model, 
             "Pulmonologist", 
             """You specialize in respiratory medicine with expertise in interstitial lung diseases.
             Your focus is on lung function, imaging patterns, and distinguishing between different 
@@ -191,7 +187,6 @@ def setup_multidisciplinary_meeting(patient_data):
         ),
         
         "rheumatologist": create_specialist(
-            model, 
             "Rheumatologist", 
             """You specialize in rheumatic diseases with particular expertise in connective 
             tissue disease-associated ILD. You focus on the autoimmune aspects of the case,
@@ -200,7 +195,6 @@ def setup_multidisciplinary_meeting(patient_data):
         ),
         
         "radiologist": create_specialist(
-            model, 
             "Thoracic Radiologist", 
             """You specialize in thoracic imaging with expertise in HRCT evaluation of ILD.
             You can distinguish between different ILD patterns including UIP and NSIP based
@@ -210,7 +204,6 @@ def setup_multidisciplinary_meeting(patient_data):
         ),
         
         "pathologist": create_specialist(
-            model, 
             "Pathologist", 
             """You specialize in lung pathology with expertise in ILD diagnosis. You interpret
             biopsy findings and correlate them with clinical and radiographic data. You understand
@@ -219,7 +212,6 @@ def setup_multidisciplinary_meeting(patient_data):
         ),
         
         "cardiologist": create_specialist(
-            model, 
             "Cardiologist", 
             """You specialize in cardiac complications of pulmonary disease with a focus on
             pulmonary hypertension. You interpret echocardiogram findings and advise on
@@ -229,7 +221,7 @@ def setup_multidisciplinary_meeting(patient_data):
     }
     
     # Create coordinator
-    coordinator = create_coordinator(model, tools)
+    coordinator = create_coordinator(tools)
     
     return specialists, coordinator, tools
 
