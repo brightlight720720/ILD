@@ -43,7 +43,9 @@ Thumbs.db
 
 # Replit specific
 .replit
+replit.nix
 .breakpoints
 .cache/
 poetry.lock
 .config/
+uv.lock
