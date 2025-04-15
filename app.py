@@ -84,8 +84,10 @@ st.set_page_config(
     layout="wide",
 )
 
-# Check for OPENAI_API_KEY
-import os
+# Import the LLM manager
+from llm_providers import llm_manager, OPENAI, OLLAMA
+
+# Check for API keys and LLM availability
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 api_key_available = OPENAI_API_KEY is not None and len(OPENAI_API_KEY.strip()) > 0
 
@@ -106,14 +108,93 @@ st.title("ILD Patient Analysis System")
 st.write("A LangChain-powered multi-agent system for collaborative analysis of Interstitial Lung Disease patients")
 st.markdown("### Featuring LLM-enhanced PDF processing and comprehensive multi-disciplinary analysis")
 
-# Display API key warning if needed
-if not api_key_available and not st.session_state.api_key_warning_shown:
-    st.warning("⚠️ OpenAI API key is not configured. The multi-agent system requires an OpenAI API key to function properly. Please add your key to the environment variables.")
+# Display LLM provider info
+if not st.session_state.api_key_warning_shown:
+    if api_key_available:
+        st.success("✅ OpenAI API key is configured and available for use.")
+    else:
+        st.info("ℹ️ OpenAI API key is not configured. You can still use Ollama as a local LLM provider if you have it installed.")
+    
     st.session_state.api_key_warning_shown = True
 
 # Sidebar for uploading and managing files
 with st.sidebar:
     st.header("Document Management")
+    
+    # LLM Provider Selection
+    st.subheader("LLM Provider Settings")
+    
+    # Initialize session state variables for LLM provider
+    if "llm_provider" not in st.session_state:
+        st.session_state.llm_provider = OPENAI if api_key_available else OLLAMA
+        llm_manager.set_provider(st.session_state.llm_provider)
+    
+    if "llm_model" not in st.session_state:
+        st.session_state.llm_model = llm_manager.get_current_model()
+    
+    # Get available providers
+    available_providers = llm_manager.get_available_providers()
+    
+    # Default to OpenAI if it's available
+    if not available_providers and api_key_available:
+        available_providers = [OPENAI]
+    
+    if available_providers:  
+        # Provider selection
+        provider_options = available_providers
+        provider_display_names = {OPENAI: "OpenAI", OLLAMA: "Ollama (Local)"}
+        
+        selected_provider = st.selectbox(
+            "Select LLM Provider",
+            options=provider_options,
+            format_func=lambda x: provider_display_names.get(x, x),
+            key="provider_selectbox"
+        )
+        
+        # Update provider if it changed
+        if selected_provider != st.session_state.llm_provider:
+            if llm_manager.set_provider(selected_provider):
+                st.session_state.llm_provider = selected_provider
+                st.session_state.llm_model = llm_manager.get_current_model()
+                st.success(f"LLM provider set to {provider_display_names.get(selected_provider, selected_provider)}")
+            else:
+                st.error(f"Failed to set provider to {provider_display_names.get(selected_provider, selected_provider)}")
+        
+        # Model selection based on provider
+        available_models = llm_manager.get_available_models(st.session_state.llm_provider)
+        
+        if available_models:
+            selected_model = st.selectbox(
+                "Select Model",
+                options=available_models,
+                index=available_models.index(st.session_state.llm_model) if st.session_state.llm_model in available_models else 0,
+                key="model_selectbox"
+            )
+            
+            # Update model if it changed
+            if selected_model != st.session_state.llm_model:
+                if llm_manager.set_model(st.session_state.llm_provider, selected_model):
+                    st.session_state.llm_model = selected_model
+                    st.success(f"Model set to {selected_model}")
+                else:
+                    st.error(f"Failed to set model to {selected_model}")
+        
+        # Additional settings for Ollama
+        if st.session_state.llm_provider == OLLAMA:
+            st.subheader("Ollama Settings")
+            ollama_url = st.text_input("Ollama URL", value=llm_manager.ollama_url)
+            
+            if ollama_url != llm_manager.ollama_url:
+                if st.button("Update Ollama URL"):
+                    if llm_manager.set_ollama_url(ollama_url):
+                        st.success(f"Ollama URL updated to {ollama_url}")
+                    else:
+                        st.error("Failed to update Ollama URL")
+    else:
+        st.warning("No LLM providers are available. Please configure either OpenAI API key or set up local Ollama.")
+    
+    # Document uploading
+    st.subheader("Document Upload")
     uploaded_file = st.file_uploader("Upload ILD patient document (PDF)", type="pdf")
     
     # Add a prominent button to use sample data for testing

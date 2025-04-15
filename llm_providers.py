@@ -7,7 +7,7 @@ a unified interface for using them in the application.
 
 import os
 from langchain_openai import ChatOpenAI
-from langchain_ollama import Ollama
+from langchain_ollama import ChatOllama
 
 # Constants for model providers
 OPENAI = "openai"
@@ -91,7 +91,7 @@ class LLMManager:
         """
         try:
             # Try to create a simple Ollama client to check connection
-            client = Ollama(base_url=self.ollama_url, model=self.models[OLLAMA])
+            client = ChatOllama(base_url=self.ollama_url, model=self.models[OLLAMA])
             # Simple test to check if Ollama is running
             test_response = client.invoke("Hello")
             self.ollama_available = True
@@ -153,7 +153,7 @@ class LLMManager:
                 temperature=temperature
             )
         elif self.current_provider == OLLAMA:
-            return Ollama(
+            return ChatOllama(
                 base_url=self.ollama_url,
                 model=self.models[OLLAMA],
                 temperature=temperature
