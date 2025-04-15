@@ -186,6 +186,13 @@ with st.sidebar:
         # Additional settings for Ollama
         if st.session_state.llm_provider == OLLAMA:
             st.subheader("Ollama Settings")
+            
+            # Check if Ollama connection is working
+            ollama_available = llm_manager.ollama_available
+            
+            if not ollama_available:
+                st.warning("⚠️ Unable to connect to Ollama. Using OpenAI as a fallback for operations. You can try updating the Ollama URL below if you have a running Ollama instance.")
+            
             ollama_url = st.text_input("Ollama URL", value=llm_manager.ollama_url)
             
             if ollama_url != llm_manager.ollama_url:

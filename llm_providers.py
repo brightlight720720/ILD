@@ -16,7 +16,7 @@ OLLAMA = "ollama"
 # Default models for each provider
 DEFAULT_MODELS = {
     OPENAI: "gpt-4o",
-    OLLAMA: "llama3"  # Change this to the model you have available in Ollama
+    OLLAMA: "llama3.2-vision"  # Change this to the model you have available in Ollama
 }
 
 # Default URLs for providers
@@ -231,7 +231,7 @@ class LLMManager:
         elif provider == OLLAMA:
             # In a real implementation, you might query Ollama for available models
             # For simplicity, return some common Ollama models
-            return ["llama3", "llama2", "mistral", "gemma", "codellama"]
+            return ["llama3.3", "llama3.2-vision", "gemma3:27b", "qwq", "phi4"]
         else:
             return []
     
