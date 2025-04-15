@@ -13,7 +13,8 @@ from langchain_agents import analyze_patients_with_langchain
 from visualization import (
     plot_pulmonary_function_trends,
     create_lab_results_radar,
-    create_patient_summary_table
+    create_patient_summary_table,
+    create_risk_assessment_dashboard
 )
 from utils import get_session_id
 
@@ -307,7 +308,7 @@ if st.session_state.comparison_view and st.session_state.patients_data:
     st.header("Multi-Patient Comparison View")
     
     # Create tabs for different comparison sections
-    comparison_tabs = st.tabs(["Basic Information", "Diagnosis & Findings", "Multi-Agent Analysis"])
+    comparison_tabs = st.tabs(["Basic Information", "Diagnosis & Findings", "Multi-Agent Analysis", "Risk Assessment"])
     
     # Tab 1: Basic Information Comparison
     with comparison_tabs[0]:
@@ -396,8 +397,31 @@ if st.session_state.comparison_view and st.session_state.patients_data:
             else:
                 st.warning(f"No analysis results available for {patient.get('name', f'Patient {i+1}')}")
     
-    # Add clinical questions comparison to the Multi-Agent Analysis tab
-    with comparison_tabs[2]:
+    # Tab 4: Risk Assessment Comparison
+    with comparison_tabs[3]:
+        st.subheader("Risk Assessment Comparison")
+        
+        # Create a table comparing risk levels
+        risk_comparison = []
+        for patient in st.session_state.patients_data:
+            analysis = next((a for a in st.session_state.analysis_results if a['patient_id'] == patient['id']), None)
+            
+            if analysis:
+                # Get the specific questions from risk assessment if available
+                questions = analysis.get('specific_questions', {})
+                
+                # Create a dictionary with all the key info
+                risk_info = {
+                    "ID": patient.get('id', 'N/A'),
+                    "Name": patient.get('name', 'N/A'),
+                    "Overall Risk": analysis.get('risk_level', 'Unknown'),
+                    "Top Risk Factors": ", ".join(analysis.get('risk_factors', [])[:2]) if analysis.get('risk_factors') else "None identified"
+                }
+                risk_comparison.append(risk_info)
+        
+        # Display as a table
+        st.table(pd.DataFrame(risk_comparison))
+        
         # Create a comparison of the 8 specific questions
         st.subheader("Clinical Questions Comparison")
         
@@ -453,6 +477,34 @@ if st.session_state.comparison_view and st.session_state.patients_data:
             # Apply the styling
             styled_df = questions_df.style.applymap(highlight_yes_no, subset=question_list)
             st.dataframe(styled_df)
+        
+        # Show individual risk dashboards
+        st.subheader("Individual Risk Dashboards")
+        
+        for i, patient in enumerate(st.session_state.patients_data):
+            analysis = next((a for a in st.session_state.analysis_results if a['patient_id'] == patient['id']), None)
+            
+            if analysis:
+                with st.expander(f"{patient.get('name', f'Patient {i+1}')} - Risk Dashboard"):
+                    try:
+                        # Generate the risk assessment dashboard
+                        risk_dashboard = create_risk_assessment_dashboard(patient, analysis)
+                        
+                        # Display the dashboard
+                        st.pyplot(risk_dashboard)
+                    except Exception as e:
+                        st.error(f"Error creating risk dashboard: {str(e)}")
+            else:
+                st.warning(f"No risk assessment available for {patient.get('name', f'Patient {i+1}')}")
+        
+        # Add legend explanation
+        with st.expander("Risk Level Color Code Legend"):
+            st.markdown("""
+            - 🟢 **Low Risk** (Green): Minimal concern, stable condition
+            - 🟡 **Moderate Risk** (Yellow): Requires monitoring and possible intervention
+            - 🔴 **High Risk** (Red): Significant concern, requires immediate attention
+            - ⚪ **Unknown** (Gray): Insufficient data to determine risk level
+            """)
 
 elif st.session_state.selected_patient:
     patient = st.session_state.selected_patient
@@ -537,10 +589,53 @@ elif st.session_state.selected_patient:
         st.header("Multi-Agent Analysis")
         
         # Create tabs for different analysis views
-        analysis_tabs = st.tabs(["Recommendations", "Specialist Impressions", "Discussion Details"])
+        analysis_tabs = st.tabs(["Specialist Impressions", "Discussion Details", "Recommendations"])
         
-        # Tab 1: Recommendations (now the first tab)
+        # Tab 1: Specialist Impressions
         with analysis_tabs[0]:
+            # Display document discussion points if available
+            if 'discussion_points' in patient and patient['discussion_points']:
+                st.subheader("Document Discussion Points")
+                for i, point in enumerate(patient['discussion_points']):
+                    st.markdown(f"**{i+1}. {point['question']}** {point['answer']}")
+            
+            # Display specialists' impressions from multi-agent system
+            if 'specialist_impressions' in analysis:
+                st.subheader("Specialist Impressions")
+                specialists = analysis.get('specialist_impressions', {})
+                
+                # Create tabs for each specialist
+                if specialists:
+                    specialist_tabs = st.tabs(list(specialists.keys()))
+                    for i, (specialist_type, impression) in enumerate(specialists.items()):
+                        with specialist_tabs[i]:
+                            st.write(impression)
+        
+        # Tab 2: Multi-Agent Discussion
+        with analysis_tabs[1]:
+            # Display multi-agent discussion
+            if 'meeting_discussion' in analysis:
+                st.subheader("Multi-Agent Discussion")
+                discussions = analysis.get('meeting_discussion', {})
+                
+                # Create expandable sections for each discussion question
+                if discussions:
+                    for question, discussion in discussions.items():
+                        with st.expander(question):
+                            st.markdown("**Coordinator:**")
+                            st.write(discussion.get('coordinator_prompt', 'No coordinator input'))
+                            
+                            for specialist, response in discussion.get('specialist_responses', {}).items():
+                                st.markdown(f"**{specialist.title()}:**")
+                                st.write(response)
+            
+            # Display meeting conclusion
+            if 'meeting_conclusion' in analysis:
+                st.subheader("Meeting Conclusion")
+                st.write(analysis.get('meeting_conclusion', 'No conclusion available'))
+        
+        # Tab 3: Recommendations
+        with analysis_tabs[2]:
             # Agent Recommendations
             st.subheader("Final Recommendations")
             
@@ -571,65 +666,17 @@ elif st.session_state.selected_patient:
                 for question in questions:
                     st.markdown(f"**{question}:** <span style='color:red'>否</span>", unsafe_allow_html=True)
             
-            # Summary and Recommendations (concise)
-            st.markdown("#### Summary & Recommendations")
-            recommendations = analysis.get('treatment_recommendations', '')
-            diagnosis = analysis.get('diagnosis_analysis', '')
-            progression = analysis.get('progression_assessment', '')
+            # Diagnosis Analysis
+            st.markdown("#### Diagnosis Analysis")
+            st.write(analysis.get('diagnosis_analysis', 'No diagnosis analysis available'))
             
-            # Combine all text and limit to 500 words
-            all_text = f"{diagnosis}\n\n{recommendations}\n\n{progression}"
-            words = all_text.split()
-            if len(words) > 500:
-                concise_text = " ".join(words[:500]) + "..."
-                st.write(concise_text)
-                with st.expander("Show full text"):
-                    st.write(all_text)
-            else:
-                st.write(all_text)
-        
-        # Tab 2: Specialist Impressions
-        with analysis_tabs[1]:
-            # Display document discussion points if available
-            if 'discussion_points' in patient and patient['discussion_points']:
-                st.subheader("Document Discussion Points")
-                for i, point in enumerate(patient['discussion_points']):
-                    st.markdown(f"**{i+1}. {point['question']}** {point['answer']}")
+            # Treatment Recommendations
+            st.markdown("#### Treatment Recommendations")
+            st.write(analysis.get('treatment_recommendations', 'No treatment recommendations available'))
             
-            # Display specialists' impressions from multi-agent system
-            if 'specialist_impressions' in analysis:
-                st.subheader("Specialist Impressions")
-                specialists = analysis.get('specialist_impressions', {})
-                
-                # Create tabs for each specialist
-                if specialists:
-                    specialist_tabs = st.tabs(list(specialists.keys()))
-                    for i, (specialist_type, impression) in enumerate(specialists.items()):
-                        with specialist_tabs[i]:
-                            st.write(impression)
-        
-        # Tab 3: Multi-Agent Discussion
-        with analysis_tabs[2]:
-            # Display multi-agent discussion
-            if 'meeting_discussion' in analysis:
-                st.subheader("Multi-Agent Discussion")
-                discussions = analysis.get('meeting_discussion', {})
-                
-                # Create expandable sections for each discussion question
-                if discussions:
-                    for question, discussion in discussions.items():
-                        with st.expander(question):
-                            st.markdown("**Coordinator:**")
-                            st.write(discussion.get('coordinator_prompt', 'No coordinator input'))
-                            
-                            for specialist, response in discussion.get('specialist_responses', {}).items():
-                                st.markdown(f"**{specialist.title()}:**")
-                                st.write(response)
-            
-            # Display meeting conclusion
-            if 'meeting_conclusion' in analysis:
-                st.subheader("Meeting Conclusion")
-                st.write(analysis.get('meeting_conclusion', 'No conclusion available'))
+            # Disease Progression Assessment
+            st.markdown("#### Disease Progression Assessment")
+            st.write(analysis.get('progression_assessment', 'No progression assessment available'))
                 
 
     else:

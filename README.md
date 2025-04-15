@@ -17,7 +17,6 @@ An advanced multi-agent medical analysis platform specialized in Interstitial Lu
   - 是否調整免疫治療藥物 (Adjust immunotherapy medications?)
   - 是否建議使用抗肺纖維化藥物 (Recommend anti-fibrotic medication?)
 - **Multi-Patient Comparison**: Compare analysis across multiple patients
-- **Concise Recommendations**: Clear, focused recommendations under 500 words with option to view full text
 
 ## Technical Stack
 
@@ -40,10 +39,8 @@ An advanced multi-agent medical analysis platform specialized in Interstitial Lu
 1. Upload a PDF containing ILD patient information
 2. The system extracts and structures the data
 3. The multi-agent system analyzes the patient information
-4. Review the analysis with key clinical questions presented first
-5. Get concise recommendations that prioritize clarity (under 500 words)
-6. Compare multiple patients in the comparison view
-7. Use with either OpenAI's API or local Ollama models
+4. Review the analysis including the 8 key clinical questions
+5. Compare multiple patients in the comparison view
 
 ## System Requirements
 
