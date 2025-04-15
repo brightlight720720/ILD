@@ -539,51 +539,8 @@ elif st.session_state.selected_patient:
         # Create tabs for different analysis views
         analysis_tabs = st.tabs(["Recommendations", "Specialist Impressions", "Discussion Details"])
         
-        # Tab 1: Specialist Impressions
+        # Tab 1: Recommendations (now the first tab)
         with analysis_tabs[0]:
-            # Display document discussion points if available
-            if 'discussion_points' in patient and patient['discussion_points']:
-                st.subheader("Document Discussion Points")
-                for i, point in enumerate(patient['discussion_points']):
-                    st.markdown(f"**{i+1}. {point['question']}** {point['answer']}")
-            
-            # Display specialists' impressions from multi-agent system
-            if 'specialist_impressions' in analysis:
-                st.subheader("Specialist Impressions")
-                specialists = analysis.get('specialist_impressions', {})
-                
-                # Create tabs for each specialist
-                if specialists:
-                    specialist_tabs = st.tabs(list(specialists.keys()))
-                    for i, (specialist_type, impression) in enumerate(specialists.items()):
-                        with specialist_tabs[i]:
-                            st.write(impression)
-        
-        # Tab 2: Multi-Agent Discussion
-        with analysis_tabs[1]:
-            # Display multi-agent discussion
-            if 'meeting_discussion' in analysis:
-                st.subheader("Multi-Agent Discussion")
-                discussions = analysis.get('meeting_discussion', {})
-                
-                # Create expandable sections for each discussion question
-                if discussions:
-                    for question, discussion in discussions.items():
-                        with st.expander(question):
-                            st.markdown("**Coordinator:**")
-                            st.write(discussion.get('coordinator_prompt', 'No coordinator input'))
-                            
-                            for specialist, response in discussion.get('specialist_responses', {}).items():
-                                st.markdown(f"**{specialist.title()}:**")
-                                st.write(response)
-            
-            # Display meeting conclusion
-            if 'meeting_conclusion' in analysis:
-                st.subheader("Meeting Conclusion")
-                st.write(analysis.get('meeting_conclusion', 'No conclusion available'))
-        
-        # Tab 3: Recommendations
-        with analysis_tabs[2]:
             # Agent Recommendations
             st.subheader("Final Recommendations")
             
@@ -614,17 +571,65 @@ elif st.session_state.selected_patient:
                 for question in questions:
                     st.markdown(f"**{question}:** <span style='color:red'>否</span>", unsafe_allow_html=True)
             
-            # Diagnosis Analysis
-            st.markdown("#### Diagnosis Analysis")
-            st.write(analysis.get('diagnosis_analysis', 'No diagnosis analysis available'))
+            # Summary and Recommendations (concise)
+            st.markdown("#### Summary & Recommendations")
+            recommendations = analysis.get('treatment_recommendations', '')
+            diagnosis = analysis.get('diagnosis_analysis', '')
+            progression = analysis.get('progression_assessment', '')
             
-            # Treatment Recommendations
-            st.markdown("#### Treatment Recommendations")
-            st.write(analysis.get('treatment_recommendations', 'No treatment recommendations available'))
+            # Combine all text and limit to 500 words
+            all_text = f"{diagnosis}\n\n{recommendations}\n\n{progression}"
+            words = all_text.split()
+            if len(words) > 500:
+                concise_text = " ".join(words[:500]) + "..."
+                st.write(concise_text)
+                with st.expander("Show full text"):
+                    st.write(all_text)
+            else:
+                st.write(all_text)
+        
+        # Tab 2: Specialist Impressions
+        with analysis_tabs[1]:
+            # Display document discussion points if available
+            if 'discussion_points' in patient and patient['discussion_points']:
+                st.subheader("Document Discussion Points")
+                for i, point in enumerate(patient['discussion_points']):
+                    st.markdown(f"**{i+1}. {point['question']}** {point['answer']}")
             
-            # Disease Progression Assessment
-            st.markdown("#### Disease Progression Assessment")
-            st.write(analysis.get('progression_assessment', 'No progression assessment available'))
+            # Display specialists' impressions from multi-agent system
+            if 'specialist_impressions' in analysis:
+                st.subheader("Specialist Impressions")
+                specialists = analysis.get('specialist_impressions', {})
+                
+                # Create tabs for each specialist
+                if specialists:
+                    specialist_tabs = st.tabs(list(specialists.keys()))
+                    for i, (specialist_type, impression) in enumerate(specialists.items()):
+                        with specialist_tabs[i]:
+                            st.write(impression)
+        
+        # Tab 3: Multi-Agent Discussion
+        with analysis_tabs[2]:
+            # Display multi-agent discussion
+            if 'meeting_discussion' in analysis:
+                st.subheader("Multi-Agent Discussion")
+                discussions = analysis.get('meeting_discussion', {})
+                
+                # Create expandable sections for each discussion question
+                if discussions:
+                    for question, discussion in discussions.items():
+                        with st.expander(question):
+                            st.markdown("**Coordinator:**")
+                            st.write(discussion.get('coordinator_prompt', 'No coordinator input'))
+                            
+                            for specialist, response in discussion.get('specialist_responses', {}).items():
+                                st.markdown(f"**{specialist.title()}:**")
+                                st.write(response)
+            
+            # Display meeting conclusion
+            if 'meeting_conclusion' in analysis:
+                st.subheader("Meeting Conclusion")
+                st.write(analysis.get('meeting_conclusion', 'No conclusion available'))
                 
 
     else:
