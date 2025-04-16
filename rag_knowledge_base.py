@@ -10,14 +10,23 @@ interstitial lung diseases (ILD) that agents can query to enhance their analysis
 import os
 import json
 from typing import List, Dict, Any, Optional
-import numpy as np
-import faiss
-from langchain_community.embeddings import OpenAIEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain_community.document_loaders import TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.schema import Document
 import tempfile
+
+# Try to import required libraries - if they fail, we'll still define RAG_AVAILABLE
+try:
+    import numpy as np
+    import faiss
+    from langchain_community.embeddings import OpenAIEmbeddings
+    from langchain_community.vectorstores import FAISS
+    from langchain_community.document_loaders import TextLoader
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
+    from langchain.schema import Document
+    # If we get here, all required libraries are available
+    RAG_AVAILABLE = True
+except ImportError:
+    # Missing dependencies
+    RAG_AVAILABLE = False
+    print("RAG dependencies not available - RAG functionality will be disabled")
 
 # Medical knowledge documents for ILD
 ILD_KNOWLEDGE = [
