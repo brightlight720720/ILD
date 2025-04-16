@@ -47,3 +47,6 @@ Thumbs.db
 .cache/
 poetry.lock
 .config/
+replit.nix
+.upm/
+.pythonlibs/
