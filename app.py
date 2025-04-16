@@ -240,7 +240,10 @@ with st.sidebar:
         st.info("Sample patient data loaded!")
         
         with st.spinner("Analyzing sample patient with multi-agent system..."):
-            st.session_state.analysis_results = analyze_patients_with_langchain(st.session_state.patients_data)
+            st.session_state.analysis_results = analyze_patients_with_langchain(
+                st.session_state.patients_data, 
+                use_rag=st.session_state.use_rag
+            )
             st.success("Multi-agent analysis complete!")
     
     if uploaded_file is not None:
@@ -280,7 +283,10 @@ with st.sidebar:
                     
                     # Analyze patient data using LangChain multi-agent system
                     with st.spinner("Analyzing patient data with multi-agent system..."):
-                        st.session_state.analysis_results = analyze_patients_with_langchain(patients_data)
+                        st.session_state.analysis_results = analyze_patients_with_langchain(
+                            patients_data,
+                            use_rag=st.session_state.use_rag
+                        )
                         st.success("Multi-agent analysis complete!")
                 else:
                     st.error("No patient data could be extracted from the document")
