@@ -594,11 +594,172 @@ def enhance_tool_with_rag(tool, knowledge_base):
     return tool
 
 
+# Function to add PDF documents to knowledge base
+def add_pdf_to_knowledge_base(pdf_path, knowledge_base=None, title=None):
+    """
+    Process a PDF document and add its content to the ILD knowledge base.
+    
+    Args:
+        pdf_path (str): Path to the PDF file
+        knowledge_base (ILDKnowledgeBase, optional): Existing knowledge base to update
+        title (str, optional): Title for the PDF content
+        
+    Returns:
+        ILDKnowledgeBase: Updated knowledge base
+    """
+    try:
+        # Import required modules
+        from pdf_processor import extract_text_from_pdf, clean_pdf_text
+        from langchain.text_splitter import RecursiveCharacterTextSplitter
+        from langchain.schema import Document
+        
+        # Extract text from PDF
+        print(f"Processing PDF: {pdf_path}")
+        raw_text = extract_text_from_pdf(pdf_path)
+        clean_text = clean_pdf_text(raw_text)
+        
+        # Generate title if not provided
+        if not title:
+            title = f"PDF Document: {os.path.basename(pdf_path)}"
+        
+        # Create a Document object
+        doc = Document(
+            page_content=clean_text,
+            metadata={"title": title, "source": pdf_path}
+        )
+        
+        # Split document into chunks
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=100,
+            separators=["\n\n", "\n", ". ", " ", ""]
+        )
+        split_docs = text_splitter.split_documents([doc])
+        
+        # If knowledge_base is not provided, create a new one
+        if knowledge_base is None:
+            knowledge_base = ILDKnowledgeBase(use_openai=True)
+        
+        # Add documents to knowledge base
+        knowledge_base.add_documents(split_docs)
+        
+        print(f"Successfully added {len(split_docs)} chunks from {title} to knowledge base")
+        return knowledge_base
+        
+    except Exception as e:
+        print(f"Error adding PDF to knowledge base: {e}")
+        import traceback
+        traceback.print_exc()
+        return knowledge_base
+
+# Function to add multiple PDFs from a directory
+def add_pdfs_from_directory(directory_path, knowledge_base=None):
+    """
+    Process all PDF files in a directory and add them to the knowledge base.
+    
+    Args:
+        directory_path (str): Path to directory containing PDFs
+        knowledge_base (ILDKnowledgeBase, optional): Existing knowledge base to update
+        
+    Returns:
+        ILDKnowledgeBase: Updated knowledge base
+    """
+    # If knowledge_base is not provided, create a new one
+    if knowledge_base is None:
+        knowledge_base = ILDKnowledgeBase(use_openai=True)
+    
+    # Get all PDF files in the directory
+    pdf_files = [f for f in os.listdir(directory_path) if f.lower().endswith('.pdf')]
+    
+    for pdf_file in pdf_files:
+        pdf_path = os.path.join(directory_path, pdf_file)
+        knowledge_base = add_pdf_to_knowledge_base(
+            pdf_path, 
+            knowledge_base=knowledge_base,
+            title=f"PDF: {pdf_file}"
+        )
+    
+    return knowledge_base
+
+# Function to search online for new guidelines
+def search_and_add_medical_guidelines(query, knowledge_base=None, max_results=3):
+    """
+    Search online for medical guidelines and add them to the knowledge base.
+    
+    Args:
+        query (str): Search query for medical guidelines
+        knowledge_base (ILDKnowledgeBase, optional): Existing knowledge base to update
+        max_results (int): Maximum number of search results to process
+        
+    Returns:
+        ILDKnowledgeBase: Updated knowledge base
+    """
+    try:
+        # Check if trafilatura is available
+        import trafilatura
+        from langchain.schema import Document
+        from langchain.text_splitter import RecursiveCharacterTextSplitter
+        
+        # If knowledge_base is not provided, create a new one
+        if knowledge_base is None:
+            knowledge_base = ILDKnowledgeBase(use_openai=True)
+        
+        # This is a simplified version - in a real implementation, you would
+        # use a proper search API or web scraping to find medical guidelines
+        
+        # For demonstration, we'll just use some sample URLs related to ILD guidelines
+        sample_urls = [
+            "https://www.atsjournals.org/doi/full/10.1164/rccm.201807-1255ST",  # ATS ILD guideline
+            "https://err.ersjournals.com/content/27/150/180076",  # ERS ILD guideline
+            "https://www.thoracic.org/statements/insterstitial-lung-disease.php",  # Thoracic society
+        ]
+        
+        processed_count = 0
+        for url in sample_urls[:max_results]:
+            try:
+                print(f"Fetching content from: {url}")
+                # Download content
+                downloaded = trafilatura.fetch_url(url)
+                if downloaded:
+                    # Extract text
+                    text = trafilatura.extract(downloaded)
+                    if text:
+                        # Create document
+                        doc = Document(
+                            page_content=text,
+                            metadata={"title": f"Medical Guideline: {url}", "source": url}
+                        )
+                        
+                        # Split document
+                        text_splitter = RecursiveCharacterTextSplitter(
+                            chunk_size=1000,
+                            chunk_overlap=100,
+                            separators=["\n\n", "\n", ". ", " ", ""]
+                        )
+                        split_docs = text_splitter.split_documents([doc])
+                        
+                        # Add to knowledge base
+                        knowledge_base.add_documents(split_docs)
+                        processed_count += 1
+                        print(f"Added content from {url} to knowledge base ({len(split_docs)} chunks)")
+            except Exception as e:
+                print(f"Error processing URL {url}: {e}")
+        
+        print(f"Successfully added content from {processed_count} sources to knowledge base")
+        return knowledge_base
+        
+    except ImportError:
+        print("Required packages for web search not available")
+        return knowledge_base
+
 if __name__ == "__main__":
     # Example usage
     kb = ILDKnowledgeBase(use_openai=True)
     result = kb.query("What are the characteristics of UIP pattern on HRCT?")
     print(result)
+    
+    # Example of adding PDFs to knowledge base
+    # kb = add_pdf_to_knowledge_base("path/to/your/pdf.pdf", kb)
     
     # Example of adding RAG to a tool
     from langchain.tools import BaseTool

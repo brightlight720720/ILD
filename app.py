@@ -163,6 +163,72 @@ with st.sidebar:
     except ImportError:
         st.warning("RAG Knowledge Base module not found")
         
+    # Knowledge Base Management Section
+    st.header("Knowledge Base Management")
+    
+    # Add PDFs to knowledge base
+    pdf_for_kb = st.file_uploader("Upload PDF for Knowledge Base", type="pdf", key="kb_pdf_uploader")
+    if pdf_for_kb is not None:
+        pdf_title = st.text_input("Title for this document (optional)")
+        if st.button("Add to Knowledge Base"):
+            # Save the uploaded file to a temporary file
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+            temp_file.write(pdf_for_kb.getvalue())
+            temp_file.close()
+            
+            # Import necessary functions
+            try:
+                from rag_knowledge_base import add_pdf_to_knowledge_base, ILDKnowledgeBase
+                
+                # Add PDF to knowledge base
+                with st.status("Adding to knowledge base...", expanded=True) as status:
+                    st.write("Processing PDF...")
+                    if not hasattr(st.session_state, 'knowledge_base'):
+                        st.session_state.knowledge_base = ILDKnowledgeBase(use_openai=True)
+                    
+                    st.session_state.knowledge_base = add_pdf_to_knowledge_base(
+                        temp_file.name,
+                        knowledge_base=st.session_state.knowledge_base,
+                        title=pdf_title if pdf_title else None
+                    )
+                    status.update(label="PDF added to knowledge base!", state="complete")
+                
+                # Clean up temporary file
+                os.unlink(temp_file.name)
+                
+            except ImportError as e:
+                st.error(f"Knowledge base module not available: {e}")
+            except Exception as e:
+                st.error(f"Error adding PDF to knowledge base: {e}")
+                # Clean up temporary file
+                os.unlink(temp_file.name)
+    
+    # Search online for guidelines
+    st.subheader("Search for Medical Guidelines")
+    search_query = st.text_input("Search Query (e.g., 'latest UIP diagnosis guidelines')")
+    if search_query and st.button("Search and Add to Knowledge Base"):
+        try:
+            from rag_knowledge_base import search_and_add_medical_guidelines
+            
+            # Search for and add medical guidelines
+            with st.status("Searching for guidelines...", expanded=True) as status:
+                if not hasattr(st.session_state, 'knowledge_base'):
+                    st.session_state.knowledge_base = ILDKnowledgeBase(use_openai=True)
+                
+                st.session_state.knowledge_base = search_and_add_medical_guidelines(
+                    search_query,
+                    knowledge_base=st.session_state.knowledge_base
+                )
+                status.update(label="Guidelines added to knowledge base!", state="complete")
+                
+        except ImportError as e:
+            st.error(f"Required modules for web search not available: {e}")
+        except Exception as e:
+            st.error(f"Error searching for guidelines: {e}")
+    
+    # Divider for LLM provider section
+    st.divider()
+    
     # For testing, we can show Ollama even if connection fails
     if OLLAMA not in available_providers:
         available_providers.append(OLLAMA)
@@ -555,6 +621,28 @@ elif st.session_state.selected_patient:
     with col2:
         st.subheader("Case Summary")
         st.write(patient.get('case_summary', 'No case summary available'))
+    
+    # Similar Cases search
+    st.subheader("Find Similar Cases")
+    if st.button("Search for Similar Cases"):
+        try:
+            # Check if knowledge base is initialized
+            if not hasattr(st.session_state, 'knowledge_base'):
+                from rag_knowledge_base import ILDKnowledgeBase
+                st.session_state.knowledge_base = ILDKnowledgeBase(use_openai=True)
+            
+            # Find similar cases
+            with st.spinner("Searching for similar cases..."):
+                similar_cases = st.session_state.knowledge_base.find_similar_cases(patient)
+                if similar_cases:
+                    st.subheader("Similar Cases Found")
+                    st.markdown(similar_cases)
+                else:
+                    st.info("No similar cases found in the knowledge base. Try adding more case documents to the knowledge base.")
+        except ImportError:
+            st.error("Knowledge base module not available")
+        except Exception as e:
+            st.error(f"Error searching for similar cases: {e}")
     
     # Medication and Treatment
     st.subheader("Current Medication")
