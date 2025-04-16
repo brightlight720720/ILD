@@ -139,6 +139,30 @@ with st.sidebar:
     if api_key_available and OPENAI not in available_providers:
         available_providers.append(OPENAI)
         
+    # RAG Settings
+    st.subheader("RAG Knowledge Settings")
+    
+    # Initialize session state for RAG
+    if "use_rag" not in st.session_state:
+        st.session_state.use_rag = True
+    
+    # Toggle for RAG
+    st.session_state.use_rag = st.toggle("Enable RAG Knowledge Base", value=st.session_state.use_rag, 
+        help="Retrieval Augmented Generation enhances the medical knowledge of the specialist agents")
+    
+    # Show status of RAG availability
+    try:
+        from rag_knowledge_base import RAG_AVAILABLE
+        if RAG_AVAILABLE:
+            if st.session_state.use_rag:
+                st.success("RAG Medical Knowledge Base: Enabled")
+            else:
+                st.info("RAG Medical Knowledge Base: Disabled")
+        else:
+            st.warning("RAG Knowledge Base is not available - required packages may be missing")
+    except ImportError:
+        st.warning("RAG Knowledge Base module not found")
+        
     # For testing, we can show Ollama even if connection fails
     if OLLAMA not in available_providers:
         available_providers.append(OLLAMA)

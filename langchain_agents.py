@@ -22,6 +22,14 @@ from llm_providers import llm_manager
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.tools import BaseTool
 
+# Import RAG knowledge base
+try:
+    from rag_knowledge_base import ILDKnowledgeBase, enhance_tool_with_rag
+    RAG_AVAILABLE = True
+except ImportError:
+    RAG_AVAILABLE = False
+    print("RAG functionality not available - using standard medical literature tool")
+
 # Get the OpenAI API key from environment
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
@@ -173,6 +181,19 @@ def setup_multidisciplinary_meeting(patient_data):
     # Create tools
     patient_data_tool = PatientDataTool(patient_data)
     medical_literature_tool = MedicalLiteratureTool()
+    
+    # Set up RAG knowledge base if available
+    if RAG_AVAILABLE:
+        try:
+            print("Initializing RAG Knowledge Base for ILD medical literature...")
+            knowledge_base = ILDKnowledgeBase(use_openai=True)
+            # Enhance the medical literature tool with RAG capabilities
+            medical_literature_tool = enhance_tool_with_rag(medical_literature_tool, knowledge_base)
+            print("Successfully initialized RAG-enhanced medical literature tool")
+        except Exception as e:
+            print(f"Error initializing RAG Knowledge Base: {e}")
+            print("Falling back to standard medical literature tool")
+    
     tools = [patient_data_tool, medical_literature_tool]
     
     # Define specialists
@@ -475,23 +496,56 @@ def analyze_patient_with_langchain(patient_data):
             'specific_questions': {}  # Empty specific questions for error case
         }
 
-def analyze_patients_with_langchain(patients_data):
+def analyze_patients_with_langchain(patients_data, use_rag=True):
     """
     Analyze multiple patients using the LangChain multi-agent system.
     
     Args:
         patients_data (list): List of patient data dictionaries
+        use_rag (bool, optional): Whether to use RAG for enhancing medical knowledge. Defaults to True.
         
     Returns:
         list: Analysis results for each patient
     """
-    analysis_results = []
+    # Set global flag for RAG usage
+    global RAG_AVAILABLE
+    # Store original flag to restore later
+    original_rag_flag = RAG_AVAILABLE if not use_rag else None
     
-    for patient in patients_data:
-        try:
-            patient_analysis = analyze_patient_with_langchain(patient)
-            analysis_results.append(patient_analysis)
-        except Exception as e:
-            print(f"Error analyzing patient {patient.get('name', 'unknown')}: {str(e)}")
-    
-    return analysis_results
+    try:
+        analysis_results = []
+        
+        # Print status about RAG usage
+        if use_rag and RAG_AVAILABLE:
+            print("Using RAG-enhanced medical knowledge for patient analysis")
+        elif not use_rag:
+            print("RAG medical knowledge enhancement disabled by user")
+            # Temporarily disable RAG
+            RAG_AVAILABLE = False
+        else:
+            print("RAG not available, using standard medical literature")
+        
+        for patient in patients_data:
+            try:
+                patient_analysis = analyze_patient_with_langchain(patient)
+                analysis_results.append(patient_analysis)
+            except Exception as e:
+                print(f"Error analyzing patient {patient.get('name', 'unknown')}: {str(e)}")
+                # Add a basic error result
+                error_result = {
+                    'patient_id': patient.get('id', 'unknown'),
+                    'patient_name': patient.get('name', 'unknown'),
+                    'diagnosis_analysis': f"Analysis could not be completed: {str(e)}",
+                    'treatment_recommendations': "No recommendations available due to analysis error",
+                    'progression_assessment': "No assessment available due to analysis error",
+                    'risk_level': "Unknown",
+                    'risk_factors': ["Analysis error"],
+                    'specific_questions': {}
+                }
+                analysis_results.append(error_result)
+        
+        return analysis_results
+    finally:
+        # Restore the original RAG flag if it was temporarily disabled
+        if original_rag_flag is not None:
+            RAG_AVAILABLE = original_rag_flag
