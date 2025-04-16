@@ -45,6 +45,42 @@ ILD_KNOWLEDGE = [
         """
     },
     
+    # Example of a case document - You can add real cases here
+    {
+        "title": "Case Example: CTD-ILD with NSIP Pattern",
+        "content": """
+        66-year-old female with history of rheumatoid arthritis presented with progressive dyspnea and dry cough over 6 months.
+        
+        Clinical findings:
+        - Bibasilar fine crackles on auscultation
+        - Clubbing absent
+        - SpO2 94% at rest, dropping to 88% with exertion
+        
+        Laboratory results:
+        - Positive rheumatoid factor (RF): 152 IU/mL
+        - Anti-CCP antibody: Positive (>250 U/mL)
+        - ESR: 42 mm/hr
+        - CRP: 2.8 mg/dL
+        
+        PFT results:
+        - FVC: 65% predicted
+        - DLCO: 58% predicted
+        - FEV1/FVC ratio: 0.82
+        
+        HRCT findings:
+        - Bilateral ground-glass opacities with lower lobe predominance
+        - Fine reticulation
+        - Minimal honeycombing
+        - Traction bronchiectasis
+        
+        Discussion points:
+        - NSIP pattern consistent with CTD-ILD
+        - Active RA requires immunosuppressive therapy
+        - Consider combination of immunosuppression for CTD and antifibrotics for progressive fibrosis
+        - Treatment with mycophenolate mofetil was initiated, with plan to add nintedanib if progression continues
+        """
+    },
+    
     # UIP Pattern information
     {
         "title": "UIP Pattern",
@@ -316,6 +352,44 @@ ILD_KNOWLEDGE = [
            - Upper vs. lower lung
            - Patchy vs. diffuse
            - Unilateral vs. bilateral
+        """
+    },
+    
+    # Case Example: IPF with UIP Pattern
+    {
+        "title": "Case Example: IPF with UIP Pattern",
+        "content": """
+        72-year-old male with progressive dyspnea, dry cough, and reduced exercise tolerance over 18 months.
+        
+        Clinical findings:
+        - Fine crackles at bilateral lung bases on auscultation
+        - Digital clubbing present
+        - SpO2 92% at rest, falling to 84% with minimal exertion
+        
+        Laboratory results:
+        - ANA, RF, anti-CCP antibodies: negative
+        - No evidence of other systemic autoimmune diseases
+        
+        PFT results:
+        - FVC: 58% predicted
+        - DLCO: 42% predicted
+        - FEV1/FVC ratio: 0.86
+        - 6-minute walk test: 280 meters with significant desaturation
+        
+        HRCT findings:
+        - Peripheral and basal predominant reticular opacities
+        - Honeycombing in multiple layers
+        - Traction bronchiectasis
+        - Minimal ground-glass opacity
+        - No features inconsistent with UIP pattern
+        
+        Discussion points:
+        - Definite UIP pattern on HRCT is highly suggestive of IPF
+        - Given age >60, typical clinical presentation, and absence of known causes, a confident diagnosis of IPF can be made without surgical lung biopsy
+        - Recommend anti-fibrotic therapy (nintedanib or pirfenidone)
+        - Consider supplemental oxygen for exertion
+        - Evaluate for pulmonary rehabilitation program
+        - Lung transplant evaluation may be appropriate given the severity of impairment
         """
     }
 ]
