@@ -224,13 +224,7 @@ def setup_multidisciplinary_meeting(patient_data):
             tools
         ),
         
-        "pathologist": create_specialist(
-            "Pathologist", 
-            """You specialize in lung pathology with expertise in ILD diagnosis. You interpret
-            biopsy findings and correlate them with clinical and radiographic data. You understand
-            the histopathological features of UIP, NSIP, and other ILD patterns.""",
-            tools
-        ),
+        # Pathologist removed as requested
         
         "cardiologist": create_specialist(
             "Cardiologist", 
@@ -273,9 +267,10 @@ def run_multidisciplinary_meeting(patient_data):
     })
     results["case_presentation"] = coordinator_response['output']
     
-    # Initial impressions from specialists
+    # Initial impressions from specialists - made more concise
     for specialist_type, specialist in specialists.items():
-        input_text = f"As the {specialist_type}, please provide your initial impression of this case based on the available information."
+        input_text = f"""As the {specialist_type}, please provide your VERY BRIEF initial impression of this case.
+        Limit your response to 50 words maximum. Focus only on the most critical findings from your specialty's perspective."""
         specialist_response = specialist.invoke({"input": input_text})
         results["specialist_impressions"][specialist_type] = specialist_response['output']
         
@@ -304,10 +299,12 @@ def run_multidisciplinary_meeting(patient_data):
         if not responding_specialists:
             responding_specialists = list(specialists.keys())
         
-        # Get responses from the identified specialists
+        # Get responses from the identified specialists - made more concise
         for specialist_type in responding_specialists:
             specialist = specialists[specialist_type]
-            context = f"The coordinator has asked the team to address: {question}"
+            context = f"""The coordinator has asked the team to address: {question}
+            As the {specialist_type}, please provide a VERY BRIEF response limited to 60 words maximum.
+            Focus only on the most critical points from your specialty's perspective."""
             specialist_response = specialist.invoke({"input": context})
             discussion_point["specialist_responses"][specialist_type] = specialist_response['output']
             
@@ -317,7 +314,9 @@ def run_multidisciplinary_meeting(patient_data):
         results["discussion_points"][question] = discussion_point
     
     # Coordinator summarizes the discussion and provides final recommendations
-    conclusion_prompt = "Please summarize our discussion today and provide the team's consensus on diagnosis and treatment recommendations."
+    conclusion_prompt = """Please provide an EXTREMELY CONCISE summary of our discussion today (maximum 100 words).
+    Focus only on the most critical findings and consensus recommendations.
+    Be direct and straight to the point with minimal explanations."""
     conclusion_response = coordinator.invoke({"input": conclusion_prompt})
     results["conclusion"] = conclusion_response['output']
     
@@ -404,20 +403,25 @@ def run_multidisciplinary_meeting(patient_data):
     
     results["specific_questions"] = specific_questions
     
-    # Extract specific analyses
-    diagnosis_prompt = "Based on our discussion, please provide a concise diagnosis analysis for this patient."
+    # Extract specific analyses with more concise output
+    diagnosis_prompt = """Based on our discussion, please provide a VERY CONCISE diagnosis analysis for this patient.
+    Limit your response to 100 words maximum. Focus only on key diagnostic findings and conclusions."""
     diagnosis_response = coordinator.invoke({"input": diagnosis_prompt})
     results["diagnosis_analysis"] = diagnosis_response['output']
     
-    treatment_prompt = "Based on our discussion, please provide specific treatment recommendations for this patient."
+    treatment_prompt = """Based on our discussion, please provide EXTREMELY CONCISE treatment recommendations for this patient.
+    Limit your response to 80 words maximum. List only specific medications and interventions with minimal explanation."""
     treatment_response = coordinator.invoke({"input": treatment_prompt})
     results["treatment_recommendations"] = treatment_response['output']
     
-    progression_prompt = "Based on our discussion, please provide an assessment of the disease progression for this patient."
+    progression_prompt = """Based on our discussion, please provide a VERY BRIEF assessment of the disease progression for this patient.
+    Limit your response to 75 words maximum. Simply state if disease is stable, progressing, or improving, with only key evidence."""
     progression_response = coordinator.invoke({"input": progression_prompt})
     results["progression_assessment"] = progression_response['output']
     
-    risk_prompt = "Based on our discussion, please provide a risk assessment for this patient, including risk level (low, moderate, high) and specific risk factors."
+    risk_prompt = """Based on our discussion, please provide a VERY BRIEF risk assessment for this patient.
+    State the risk level (low, moderate, high) and list ONLY 3-4 most critical risk factors.
+    Limit your response to 60 words maximum and use bullet points for clarity."""
     risk_response = coordinator.invoke({"input": risk_prompt})
     
     # Try to extract structured risk assessment
